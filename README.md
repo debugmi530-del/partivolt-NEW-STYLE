@@ -1,14 +1,14 @@
-# 🖥️ PC Builder
+# ⚡ Partivolt
 
 Мобильное приложение для сборки ПК из комплектующих — как DNS, но в вашем кармане.
 
 ![Android](https://img.shields.io/badge/Android-3DDC84?style=flat&logo=android&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-3.32-02569B?style=flat&logo=flutter)
-![APK](https://img.shields.io/github/v/release/debugmi530-del/pc-builder-app?label=APK)
+![APK](https://img.shields.io/github/v/release/debugmi530-del/pcbuilder?label=APK)
 
 ## 📱 Скачать APK
 
-Перейдите в раздел [Releases](https://github.com/debugmi530-del/pc-builder-app/releases) и скачайте последний APK.
+Перейдите в раздел [Releases](https://github.com/debugmi530-del/pcbuilder/releases) и скачайте последний APK.
 
 - **arm64-v8a** — современные Android (Snapdragon 800+, Exynos 9+, Dimensity) — **рекомендуется**
 - **armeabi-v7a** — старые устройства (Android 5+)

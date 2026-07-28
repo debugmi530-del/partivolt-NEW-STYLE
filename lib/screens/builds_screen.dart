@@ -113,7 +113,7 @@ class BuildsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Отправьте этот код другу. Он откроет PC Builder → «Сборки» → кнопка ↓ → вставит код.',
+              'Отправьте этот код другу. Он откроет Partivolt → «Сборки» → кнопка ↓ → вставит код.',
               style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -194,7 +194,7 @@ class BuildsScreen extends StatelessWidget {
               controller: controller,
               maxLines: 3,
               decoration: const InputDecoration(
-                hintText: 'pcbuilder://import?code=... или eyJ2...',
+                hintText: 'partivolt://import?code=... или eyJ2...',
                 border: OutlineInputBorder(),
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -224,9 +224,9 @@ class BuildsScreen extends StatelessWidget {
 
   // ── Выполняет импорт и показывает результат ──
   void _doImport(BuildContext context, String raw) {
-    // Принимаем как полную ссылку pcbuilder://import?code=..., так и голый код
+    // Принимаем как полную ссылку partivolt://import?code=..., так и голый код
     String code = raw.trim();
-    if (code.startsWith('pcbuilder://')) {
+    if (code.startsWith('partivolt://')) {
       final uri = Uri.tryParse(code);
       code = uri?.queryParameters['code'] ?? code;
     }

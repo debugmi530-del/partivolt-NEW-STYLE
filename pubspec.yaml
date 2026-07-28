@@ -1,5 +1,5 @@
-name: pc_builder
-description: PC Builder App - assemble your PC like DNS
+name: partivolt
+description: Partivolt — assemble your PC like a pro
 publish_to: none
 version: 1.0.0+1
 

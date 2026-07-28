@@ -25,18 +25,18 @@ void main() {
     statusBarColor: AppTheme.primary,
     statusBarIconBrightness: Brightness.light,
   ));
-  runApp(const PcBuilderApp());
+  runApp(const PartiVoltApp());
 }
 
-class PcBuilderApp extends StatelessWidget {
-  const PcBuilderApp({super.key});
+class PartiVoltApp extends StatelessWidget {
+  const PartiVoltApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => AppProvider(),
       child: MaterialApp.router(
-        title: 'PC Builder',
+        title: 'Partivolt',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         routerConfig: _router,
@@ -131,7 +131,7 @@ class _MainShellState extends State<_MainShell> with WidgetsBindingObserver {
   }
 
   void _handleLink(Uri uri) {
-    if (uri.scheme != 'pcbuilder') return;
+    if (uri.scheme != 'partivolt') return;
     final code = uri.queryParameters['code'];
     if (code == null || code.isEmpty) return;
 

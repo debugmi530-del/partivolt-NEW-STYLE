@@ -44,19 +44,19 @@ jobs:
       - name: Generate keystore
         run: |
           keytool -genkeypair \
-            -alias pc_builder_key \
+            -alias partivolt_key \
             -keyalg RSA \
             -keysize 2048 \
             -validity 10000 \
             -keystore keystore.jks \
-            -storepass pcbuilder123 \
-            -keypass pcbuilder123 \
-            -dname "CN=PC Builder, OU=App, O=PC Builder, L=City, ST=State, C=RU" \
+            -storepass partivolt123 \
+            -keypass partivolt123 \
+            -dname "CN=Partivolt, OU=App, O=Partivolt, L=City, ST=State, C=RU" \
             -noprompt
 
       - name: Configure signing
         run: |
-          printf 'storePassword=pcbuilder123\nkeyPassword=pcbuilder123\nkeyAlias=pc_builder_key\nstoreFile=%s/keystore.jks\n' "$GITHUB_WORKSPACE" \
+          printf 'storePassword=partivolt123\nkeyPassword=partivolt123\nkeyAlias=partivolt_key\nstoreFile=%s/keystore.jks\n' "$GITHUB_WORKSPACE" \
             > android/key.properties
 
       - name: Get version
@@ -90,18 +90,18 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.version }}
           mv build/app/outputs/flutter-apk/app-release.apk \
-            build/app/outputs/flutter-apk/PCBuilder-v${VERSION}-universal.apk
+            build/app/outputs/flutter-apk/Partivolt-v${VERSION}-universal.apk
           for abi in arm64-v8a armeabi-v7a x86_64; do
             if [ -f "build/app/outputs/flutter-apk/app-${abi}-release.apk" ]; then
               mv "build/app/outputs/flutter-apk/app-${abi}-release.apk" \
-                "build/app/outputs/flutter-apk/PCBuilder-v${VERSION}-${abi}.apk"
+                "build/app/outputs/flutter-apk/Partivolt-v${VERSION}-${abi}.apk"
             fi
           done
 
       - name: Create release notes
         run: |
           cat > release_notes.md << 'NOTES'
-          ## PC Builder — Android APK
+          ## Partivolt — Android APK
 
           ### Что нового
           - Каталог комплектующих: CPU, GPU, RAM, Накопители, БП, Матплаты, Корпуса, Охлаждение
@@ -128,9 +128,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag_name }}
-          name: "PC Builder ${{ steps.version.outputs.version }} (build ${{ steps.version.outputs.build_number }})"
+          name: "Partivolt ${{ steps.version.outputs.version }} (build ${{ steps.version.outputs.build_number }})"
           body_path: release_notes.md
-          files: build/app/outputs/flutter-apk/PCBuilder-*.apk
+          files: build/app/outputs/flutter-apk/Partivolt-*.apk
           draft: false
           prerelease: false
           generate_release_notes: false
@@ -141,5 +141,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apks-build-${{ steps.version.outputs.build_number }}
-          path: build/app/outputs/flutter-apk/PCBuilder-*.apk
+          path: build/app/outputs/flutter-apk/Partivolt-*.apk
           retention-days: 30
