@@ -491,27 +491,14 @@ class _ComponentDetailView extends StatelessWidget {
                   inBuild ? Icons.check_circle : Icons.add_shopping_cart,
                   size: 18,
                 ),
-                label: Text(inBuild ? 'В сборке' : 'В сборку'),
+                label: _buildButtonLabel(provider),
                 onPressed: () {
                   final messenger = ScaffoldMessenger.of(context);
-                  if (inBuild) {
-                    if (component.category == ComponentCategory.storage) {
-                      provider.removeStorageDrive(component.id);
-                    } else {
-                      provider.removeFromBuild(component.category);
-                    }
-                    messenger
-                      ..clearSnackBars()
-                      ..showSnackBar(
-                        const SnackBar(
-                          content: Text('Удалено из сборки'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                  } else {
-                    final limitErr = component.category == ComponentCategory.storage
-                        ? provider.canAddStorageDrive(component)
-                        : null;
+                  final isStorage = component.category == ComponentCategory.storage;
+                  final isRam = component.category == ComponentCategory.ram;
+
+                  if (isStorage) {
+                    final limitErr = provider.canAddStorageDrive(component);
                     if (limitErr != null) {
                       messenger
                         ..clearSnackBars()
@@ -523,20 +510,70 @@ class _ComponentDetailView extends StatelessWidget {
                       provider.addToBuild(component);
                       messenger
                         ..clearSnackBars()
-                        ..showSnackBar(
-                          SnackBar(
-                            content: Text('${component.model} добавлен в сборку'),
-                            duration: const Duration(seconds: 2),
-                            action: SnackBarAction(
-                              label: 'Сборка',
-                              onPressed: () {
-                                messenger.clearSnackBars();
-                                context.push('/builder');
-                              },
-                            ),
+                        ..showSnackBar(SnackBar(
+                          content: Text('${component.model} добавлен в сборку'),
+                          duration: const Duration(seconds: 2),
+                          action: SnackBarAction(
+                            label: 'Сборка',
+                            onPressed: () {
+                              messenger.clearSnackBars();
+                              context.push('/builder');
+                            },
                           ),
-                        );
+                        ));
                     }
+                  } else if (isRam) {
+                    final limitErr = provider.canAddRamStick(component);
+                    if (limitErr != null) {
+                      messenger
+                        ..clearSnackBars()
+                        ..showSnackBar(SnackBar(
+                          content: Text(limitErr),
+                          duration: const Duration(seconds: 2),
+                        ));
+                    } else {
+                      provider.addToBuild(component);
+                      messenger
+                        ..clearSnackBars()
+                        ..showSnackBar(SnackBar(
+                          content: Text('${component.model} добавлен в сборку'),
+                          duration: const Duration(seconds: 2),
+                          action: SnackBarAction(
+                            label: 'Сборка',
+                            onPressed: () {
+                              messenger.clearSnackBars();
+                              context.push('/builder');
+                            },
+                          ),
+                        ));
+                    }
+                  } else if (inBuild) {
+                    provider.removeFromBuild(component.category);
+                    messenger
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text('Удалено из сборки'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                  } else {
+                    provider.addToBuild(component);
+                    messenger
+                      ..clearSnackBars()
+                      ..showSnackBar(
+                        SnackBar(
+                          content: Text('${component.model} добавлен в сборку'),
+                          duration: const Duration(seconds: 2),
+                          action: SnackBarAction(
+                            label: 'Сборка',
+                            onPressed: () {
+                              messenger.clearSnackBars();
+                              context.push('/builder');
+                            },
+                          ),
+                        ),
+                      );
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -549,6 +586,24 @@ class _ComponentDetailView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// Возвращает текст кнопки «В сборку» с учётом типа компонента.
+  /// Для накопителей и RAM — всегда «В сборку» (можно добавить несколько).
+  Widget _buildButtonLabel(AppProvider provider) {
+    final isStorage = component.category == ComponentCategory.storage;
+    final isRam = component.category == ComponentCategory.ram;
+
+    if (isStorage) {
+      final count = provider.storageCountInBuild(component.id);
+      return Text(count > 0 ? 'В сборку (×$count)' : 'В сборку');
+    }
+    if (isRam) {
+      final count = provider.ramCountInBuild(component.id);
+      return Text(count > 0 ? 'В сборку (×$count)' : 'В сборку');
+    }
+    final inBuild = provider.isInCurrentBuild(component.id);
+    return Text(inBuild ? 'В сборке' : 'В сборку');
   }
 
   String _formatPrice(double price) {

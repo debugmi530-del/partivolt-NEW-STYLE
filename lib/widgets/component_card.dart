@@ -16,10 +16,6 @@ class ComponentCard extends StatelessWidget {
   });
 
   void _onCompareTap(BuildContext context, AppProvider provider, bool inCompare) {
-    // Захватываем мессенджер ДО изменения состояния.
-    // provider.*() вызывает notifyListeners(), после чего context может
-    // указывать на перестроенный виджет — тогда второй ScaffoldMessenger.of(context)
-    // вернёт другой экземпляр и старый снекбар «зависнет» на экране.
     final messenger = ScaffoldMessenger.of(context);
 
     if (inCompare) {
@@ -121,8 +117,23 @@ class ComponentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
-    final inBuild = provider.isInCurrentBuild(component.id);
     final inCompare = provider.isInCompare(component.id);
+
+    // Для RAM и storage поддерживаем кратные добавления
+    final isStorage = component.category == ComponentCategory.storage;
+    final isRam = component.category == ComponentCategory.ram;
+    final isMultiSlot = isStorage || isRam;
+
+    final countInBuild = isStorage
+        ? provider.storageCountInBuild(component.id)
+        : isRam
+            ? provider.ramCountInBuild(component.id)
+            : 0;
+
+    // Для обычных категорий — стандартное поведение
+    final inBuild = isMultiSlot
+        ? countInBuild > 0
+        : provider.isInCurrentBuild(component.id);
 
     return Card(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -157,7 +168,29 @@ class ComponentCard extends StatelessWidget {
                         size: 34,
                       ),
                     ),
-                    if (inBuild)
+                    // Для multi-slot показываем счётчик вместо просто галочки
+                    if (isMultiSlot && countInBuild > 0)
+                      Positioned(
+                        top: 2,
+                        right: 2,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppTheme.success,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$countInBuild',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (!isMultiSlot && inBuild)
                       Positioned(
                         top: 2,
                         right: 2,
@@ -267,57 +300,31 @@ class ComponentCard extends StatelessWidget {
 
                         // Add to build button
                         GestureDetector(
-                          onTap: () {
-                            if (inBuild) {
-                              if (component.category == ComponentCategory.storage) {
-                                provider.removeStorageDrive(component.id);
-                              } else {
-                                provider.removeFromBuild(component.category);
-                              }
-                            } else {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final limitErr = component.category == ComponentCategory.storage
-                                  ? provider.canAddStorageDrive(component)
-                                  : null;
-                              if (limitErr != null) {
-                                messenger
-                                  ..clearSnackBars()
-                                  ..showSnackBar(SnackBar(content: Text(limitErr)));
-                              } else {
-                                provider.addToBuild(component);
-                                messenger
-                                  ..clearSnackBars()
-                                  ..showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${component.model} добавлен в сборку',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                              }
-                            }
-                          },
+                          onTap: () => _onAddToBuild(context, provider, inBuild),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: inBuild
-                                  ? AppTheme.success
-                                  : AppTheme.accent,
+                              color: isMultiSlot
+                                  ? AppTheme.accent
+                                  : (inBuild ? AppTheme.success : AppTheme.accent),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  inBuild ? Icons.check : Icons.add,
+                                  isMultiSlot
+                                      ? Icons.add
+                                      : (inBuild ? Icons.check : Icons.add),
                                   size: 14,
                                   color: Colors.white,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  inBuild ? 'В сборке' : 'В сборку',
+                                  isMultiSlot
+                                      ? 'В сборку'
+                                      : (inBuild ? 'В сборке' : 'В сборку'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 11,
@@ -338,6 +345,63 @@ class ComponentCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _onAddToBuild(BuildContext context, AppProvider provider, bool inBuild) {
+    final messenger = ScaffoldMessenger.of(context);
+    final isStorage = component.category == ComponentCategory.storage;
+    final isRam = component.category == ComponentCategory.ram;
+
+    if (isStorage) {
+      final limitErr = provider.canAddStorageDrive(component);
+      if (limitErr != null) {
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(content: Text(limitErr)));
+      } else {
+        provider.addToBuild(component);
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('${component.model} добавлен в сборку'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
+    } else if (isRam) {
+      final limitErr = provider.canAddRamStick(component);
+      if (limitErr != null) {
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(SnackBar(content: Text(limitErr)));
+      } else {
+        provider.addToBuild(component);
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('${component.model} добавлен в сборку'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
+    } else {
+      // Обычная категория — toggle
+      if (inBuild) {
+        provider.removeFromBuild(component.category);
+      } else {
+        provider.addToBuild(component);
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('${component.model} добавлен в сборку'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
+    }
   }
 
   String _formatPrice(double price) {

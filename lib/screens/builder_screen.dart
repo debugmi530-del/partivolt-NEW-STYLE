@@ -20,9 +20,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
     final build = provider.currentBuild;
     final compat = provider.checkCompatibility();
 
-    // Все категории кроме storage
-    final nonStorageCategories = ComponentCategory.values
-        .where((c) => c != ComponentCategory.storage)
+    // Все категории кроме storage и ram (они рендерятся отдельно)
+    final nonListCategories = ComponentCategory.values
+        .where((c) => c != ComponentCategory.storage && c != ComponentCategory.ram)
         .toList();
 
     return Scaffold(
@@ -40,7 +40,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
           ),
         ),
         actions: [
-          if (build.components.isNotEmpty || build.storageList.isNotEmpty)
+          if (build.components.isNotEmpty ||
+              build.storageList.isNotEmpty ||
+              build.ramList.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.save_outlined),
               tooltip: 'Сохранить сборку',
@@ -51,7 +53,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
                 );
               },
             ),
-          if (build.components.isNotEmpty || build.storageList.isNotEmpty)
+          if (build.components.isNotEmpty ||
+              build.storageList.isNotEmpty ||
+              build.ramList.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Очистить',
@@ -146,7 +150,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
 
           // Compatibility panel
           if (_showCompatibility &&
-              (build.components.isNotEmpty || build.storageList.isNotEmpty))
+              (build.components.isNotEmpty ||
+                  build.storageList.isNotEmpty ||
+                  build.ramList.isNotEmpty))
             Container(
               color: const Color(0xFFF8F9FA),
               padding: const EdgeInsets.all(12),
@@ -225,8 +231,8 @@ class _BuilderScreenState extends State<BuilderScreen> {
             child: ListView(
               padding: const EdgeInsets.only(bottom: 24),
               children: [
-                // Обычные категории (не storage)
-                ...nonStorageCategories.map((cat) {
+                // Обычные категории (не storage, не ram)
+                ...nonListCategories.map((cat) {
                   final component = build.components[cat];
                   return _SlotCard(
                     category: cat,
@@ -241,6 +247,29 @@ class _BuilderScreenState extends State<BuilderScreen> {
                   );
                 }),
 
+                // ── Слоты оперативной памяти ──
+                ...build.ramList.asMap().entries.map((entry) {
+                  final idx = entry.key;
+                  final ram = entry.value;
+                  return _SlotCard(
+                    category: ComponentCategory.ram,
+                    component: ram,
+                    label: 'RAM ${idx + 1}',
+                    onAdd: () => context.push(
+                        '/category/${ComponentCategory.ram.key}'),
+                    onRemove: () => provider.removeRamStickAt(idx),
+                    onTap: () => context.push('/component/${ram.id}'),
+                  );
+                }),
+
+                // Кнопка «Добавить планку RAM» если есть свободные слоты
+                _AddRamSlot(
+                  currentCount: build.ramList.length,
+                  maxSlots: provider.maxRamSlots,
+                  onAdd: () =>
+                      context.push('/category/${ComponentCategory.ram.key}'),
+                ),
+
                 // ── Слоты накопителей ──
                 ...build.storageList.asMap().entries.map((entry) {
                   final idx = entry.key;
@@ -249,9 +278,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     category: ComponentCategory.storage,
                     component: drive,
                     label: 'Накопитель ${idx + 1}',
-                    onAdd: () =>
-                        context.push('/category/${ComponentCategory.storage.key}'),
-                    onRemove: () => provider.removeStorageDrive(drive.id),
+                    onAdd: () => context.push(
+                        '/category/${ComponentCategory.storage.key}'),
+                    onRemove: () => provider.removeStorageDriveAt(idx),
                     onTap: () => context.push('/component/${drive.id}'),
                   );
                 }),
@@ -328,6 +357,103 @@ class _BuilderScreenState extends State<BuilderScreen> {
     return price.toInt().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]} ',
+    );
+  }
+}
+
+// ─── Add RAM Slot ───
+
+class _AddRamSlot extends StatelessWidget {
+  final int currentCount;
+  final int maxSlots;
+  final VoidCallback onAdd;
+
+  const _AddRamSlot({
+    required this.currentCount,
+    required this.maxSlots,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final canAdd = currentCount < maxSlots;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.divider),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: canAdd ? onAdd : null,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: canAdd
+                      ? ComponentCategory.ram.color.withValues(alpha: 0.1)
+                      : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  ComponentCategory.ram.icon,
+                  color: canAdd
+                      ? ComponentCategory.ram.color
+                      : AppTheme.textSecondary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'RAM ${currentCount + 1}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: canAdd
+                            ? ComponentCategory.ram.color
+                            : AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      canAdd
+                          ? 'Добавить планку памяти ($currentCount / $maxSlots)'
+                          : 'Заполнены все слоты памяти ($maxSlots)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: canAdd
+                            ? AppTheme.textSecondary
+                            : AppTheme.error,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (canAdd)
+                const Icon(Icons.add_circle_outline,
+                    color: AppTheme.primary, size: 24)
+              else
+                const Icon(Icons.block, color: AppTheme.error, size: 20),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

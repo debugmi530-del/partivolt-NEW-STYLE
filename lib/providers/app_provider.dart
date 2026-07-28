@@ -27,6 +27,7 @@ class AppProvider extends ChangeNotifier {
     createdAt: DateTime.now(),
     components: {},
     storageList: [],
+    ramList: [],
   );
   List<PcBuild> _savedBuilds = [];
 
@@ -72,6 +73,10 @@ class AppProvider extends ChangeNotifier {
       addStorageDrive(component);
       return;
     }
+    if (component.category == ComponentCategory.ram) {
+      addRamStick(component);
+      return;
+    }
     final updated = Map<ComponentCategory, Component>.from(_currentBuild.components);
     updated[component.category] = component;
     _currentBuild = _currentBuild.copyWith(components: updated);
@@ -80,7 +85,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   void removeFromBuild(ComponentCategory category) {
-    if (category == ComponentCategory.storage) return; // use removeStorageDrive
+    if (category == ComponentCategory.storage) return; // use removeStorageDriveAt
+    if (category == ComponentCategory.ram) return; // use removeRamStickAt
     final updated = Map<ComponentCategory, Component>.from(_currentBuild.components);
     updated.remove(category);
     _currentBuild = _currentBuild.copyWith(components: updated);
@@ -120,12 +126,84 @@ class AppProvider extends ChangeNotifier {
     _save();
   }
 
-  void removeStorageDrive(String componentId) {
-    final newList = List<Component>.from(_currentBuild.storageList)
-      ..removeWhere((c) => c.id == componentId);
+  /// Удаляет накопитель по индексу (поддерживает дубликаты).
+  void removeStorageDriveAt(int index) {
+    if (index < 0 || index >= _currentBuild.storageList.length) return;
+    final newList = List<Component>.from(_currentBuild.storageList)..removeAt(index);
     _currentBuild = _currentBuild.copyWith(storageList: newList);
     notifyListeners();
     _save();
+  }
+
+  /// Количество накопителей с данным id в текущей сборке.
+  int storageCountInBuild(String componentId) {
+    return _currentBuild.storageList.where((c) => c.id == componentId).length;
+  }
+
+  /// Удаляет первый найденный накопитель с данным id (для экрана деталей).
+  void removeFirstStorageDriveOccurrence(String componentId) {
+    final idx = _currentBuild.storageList.indexWhere((c) => c.id == componentId);
+    if (idx != -1) removeStorageDriveAt(idx);
+  }
+
+  // ─── RAM management ───
+
+  /// Максимальное количество планок RAM, которое поддерживает выбранная мат. плата.
+  /// Если мат. плата не выбрана — разрешаем до 4 штук по умолчанию.
+  int get maxRamSlots {
+    final mb = _currentBuild.components[ComponentCategory.motherboard];
+    return _maxRamSlotsForMotherboard(mb);
+  }
+
+  int _maxRamSlotsForMotherboard(Component? mb) {
+    if (mb == null) return 4;
+    final slots = int.tryParse(mb.specs['Слоты памяти'] ?? '');
+    if (slots != null && slots > 0) return slots;
+    return 4;
+  }
+
+  /// Возвращает null если можно добавить планку RAM, иначе текст ошибки.
+  String? canAddRamStick(Component component) {
+    if (_currentBuild.ramList.length >= maxRamSlots) {
+      return 'Материнская плата поддерживает максимум $maxRamSlots слота(-ов) памяти';
+    }
+    // Проверка совместимости типа с уже установленной памятью
+    if (_currentBuild.ramList.isNotEmpty) {
+      final existingType = _currentBuild.ramList.first.memoryType;
+      if (existingType != null && component.memoryType != null &&
+          existingType != component.memoryType) {
+        return 'Нельзя смешивать разные типы памяти ($existingType и ${component.memoryType})';
+      }
+    }
+    return null;
+  }
+
+  void addRamStick(Component component) {
+    if (canAddRamStick(component) != null) return;
+    final newList = List<Component>.from(_currentBuild.ramList)..add(component);
+    _currentBuild = _currentBuild.copyWith(ramList: newList);
+    notifyListeners();
+    _save();
+  }
+
+  /// Удаляет планку RAM по индексу (поддерживает дубликаты).
+  void removeRamStickAt(int index) {
+    if (index < 0 || index >= _currentBuild.ramList.length) return;
+    final newList = List<Component>.from(_currentBuild.ramList)..removeAt(index);
+    _currentBuild = _currentBuild.copyWith(ramList: newList);
+    notifyListeners();
+    _save();
+  }
+
+  /// Количество планок RAM с данным id в текущей сборке.
+  int ramCountInBuild(String componentId) {
+    return _currentBuild.ramList.where((c) => c.id == componentId).length;
+  }
+
+  /// Удаляет первую найденную планку RAM с данным id (для экрана деталей).
+  void removeFirstRamStickOccurrence(String componentId) {
+    final idx = _currentBuild.ramList.indexWhere((c) => c.id == componentId);
+    if (idx != -1) removeRamStickAt(idx);
   }
 
   // ─── Other build ops ───
@@ -143,6 +221,7 @@ class AppProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
       components: {},
       storageList: [],
+      ramList: [],
     );
     notifyListeners();
     _save();
@@ -155,6 +234,7 @@ class AppProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
       components: Map.from(_currentBuild.components),
       storageList: List.from(_currentBuild.storageList),
+      ramList: List.from(_currentBuild.ramList),
     );
     _savedBuilds = [build, ..._savedBuilds];
     notifyListeners();
@@ -174,6 +254,7 @@ class AppProvider extends ChangeNotifier {
       createdAt: DateTime.now(),
       components: Map.from(build.components),
       storageList: List.from(build.storageList),
+      ramList: List.from(build.ramList),
     );
     notifyListeners();
     _save();
@@ -188,8 +269,9 @@ class AppProvider extends ChangeNotifier {
       final jsonStr = utf8.decode(base64Url.decode(base64Url.normalize(trimmed)));
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-      // Проверяем версию формата
-      if (data['v'] != 1) {
+      // Поддерживаем версии 1 и 2
+      final version = data['v'] as int? ?? 1;
+      if (version != 1 && version != 2) {
         return const ImportResult(missingCategories: ['Неизвестный формат кода']);
       }
 
@@ -209,6 +291,8 @@ class AppProvider extends ChangeNotifier {
       for (final entry in rawComponents.entries) {
         final cat = _categoryFromKey(entry.key);
         if (cat == null) continue;
+        // RAM теперь хранится в ramIds, пропускаем старый ключ 'ram' из components
+        if (cat == ComponentCategory.ram) continue;
 
         final comp = findComponentById(entry.value as String);
         if (comp != null) {
@@ -218,7 +302,7 @@ class AppProvider extends ChangeNotifier {
         }
       }
 
-      // Восстанавливаем список накопителей (поле 's', необязательное для обратной совместимости)
+      // Восстанавливаем список накопителей
       final storageList = <Component>[];
       final rawStorage = data['s'] as List<dynamic>?;
       if (rawStorage != null) {
@@ -232,12 +316,31 @@ class AppProvider extends ChangeNotifier {
         }
       }
 
+      // Восстанавливаем список RAM
+      final ramList = <Component>[];
+      final rawRam = data['r'] as List<dynamic>?;
+      if (rawRam != null) {
+        for (final id in rawRam) {
+          final comp = findComponentById(id as String);
+          if (comp != null) {
+            ramList.add(comp);
+          } else {
+            missingCategories.add('RAM');
+          }
+        }
+      } else if (rawComponents.containsKey('ram')) {
+        // Обратная совместимость: v1 код с RAM в components
+        final comp = findComponentById(rawComponents['ram'] as String);
+        if (comp != null) ramList.add(comp);
+      }
+
       final build = PcBuild(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
         createdAt: DateTime.now(),
         components: components,
         storageList: storageList,
+        ramList: ramList,
       );
 
       return ImportResult(build: build, missingCategories: missingCategories);
@@ -258,12 +361,12 @@ class AppProvider extends ChangeNotifier {
   CompatibilityResult checkCompatibility() {
     final components = _currentBuild.components;
     final storageList = _currentBuild.storageList;
+    final ramList = _currentBuild.ramList;
     final errors = <String>[];
     final warnings = <String>[];
 
     final cpu = components[ComponentCategory.cpu];
     final mb = components[ComponentCategory.motherboard];
-    final ram = components[ComponentCategory.ram];
     final gpu = components[ComponentCategory.gpu];
     final psu = components[ComponentCategory.psu];
     final pcCase = components[ComponentCategory.pcCase];
@@ -275,15 +378,32 @@ class AppProvider extends ChangeNotifier {
       }
     }
 
-    if (ram != null && mb != null) {
-      if (mb.memoryTypes.isNotEmpty && !mb.memoryTypes.contains(ram.memoryType)) {
-        errors.add('Память ${ram.brand} ${ram.model} (${ram.memoryType}) несовместима с платой ${mb.brand} ${mb.model}');
+    // Проверка RAM для каждой планки
+    for (final ram in ramList) {
+      if (mb != null) {
+        if (mb.memoryTypes.isNotEmpty && ram.memoryType != null &&
+            !mb.memoryTypes.contains(ram.memoryType)) {
+          errors.add('Память ${ram.brand} ${ram.model} (${ram.memoryType}) несовместима с платой ${mb.brand} ${mb.model}');
+          break; // достаточно одной ошибки для одинаковых планок
+        }
+      }
+      if (cpu != null) {
+        if (cpu.memoryTypes.isNotEmpty && ram.memoryType != null &&
+            !cpu.memoryTypes.contains(ram.memoryType)) {
+          warnings.add('Процессор ${cpu.model} поддерживает ${cpu.memoryTypes.join('/')}, установлена ${ram.memoryType}');
+          break;
+        }
       }
     }
 
-    if (cpu != null && ram != null) {
-      if (cpu.memoryTypes.isNotEmpty && !cpu.memoryTypes.contains(ram.memoryType)) {
-        warnings.add('Процессор ${cpu.model} поддерживает ${cpu.memoryTypes.join('/')}, установлена ${ram.memoryType}');
+    // Проверка количества планок RAM vs слоты мат. платы
+    if (mb != null && ramList.isNotEmpty) {
+      final maxSlots = _maxRamSlotsForMotherboard(mb);
+      if (ramList.length > maxSlots) {
+        errors.add(
+          'Материнская плата ${mb.brand} ${mb.model} имеет $maxSlots слота(-ов) памяти, '
+          'установлено ${ramList.length}',
+        );
       }
     }
 
@@ -490,10 +610,10 @@ class AppProvider extends ChangeNotifier {
     ComponentCategory category,
   ) {
     final sel = _currentBuild.components;
+    final ramList = _currentBuild.ramList;
 
     final cpu = sel[ComponentCategory.cpu];
     final mb = sel[ComponentCategory.motherboard];
-    final ram = sel[ComponentCategory.ram];
     final gpu = sel[ComponentCategory.gpu];
     final pcCase = sel[ComponentCategory.pcCase];
 
@@ -503,8 +623,11 @@ class AppProvider extends ChangeNotifier {
           if (mb != null && mb.socket != null && c.socket != null) {
             if (c.socket != mb.socket) return false;
           }
-          if (ram != null && ram.memoryType != null && c.memoryTypes.isNotEmpty) {
-            if (!c.memoryTypes.contains(ram.memoryType)) return false;
+          if (ramList.isNotEmpty) {
+            final existingType = ramList.first.memoryType;
+            if (existingType != null && c.memoryTypes.isNotEmpty) {
+              if (!c.memoryTypes.contains(existingType)) return false;
+            }
           }
           return true;
         }).toList();
@@ -514,8 +637,11 @@ class AppProvider extends ChangeNotifier {
           if (cpu != null && cpu.socket != null && c.socket != null) {
             if (c.socket != cpu.socket) return false;
           }
-          if (ram != null && ram.memoryType != null && c.memoryTypes.isNotEmpty) {
-            if (!c.memoryTypes.contains(ram.memoryType)) return false;
+          if (ramList.isNotEmpty) {
+            final existingType = ramList.first.memoryType;
+            if (existingType != null && c.memoryTypes.isNotEmpty) {
+              if (!c.memoryTypes.contains(existingType)) return false;
+            }
           }
           if (pcCase != null &&
               pcCase.supportedFormFactors.isNotEmpty &&
@@ -533,6 +659,14 @@ class AppProvider extends ChangeNotifier {
           if (cpu != null && cpu.memoryTypes.isNotEmpty && c.memoryType != null) {
             if (!cpu.memoryTypes.contains(c.memoryType)) return false;
           }
+          // Если уже есть планки, новая должна быть того же типа
+          if (ramList.isNotEmpty) {
+            final existingType = ramList.first.memoryType;
+            if (existingType != null && c.memoryType != null &&
+                c.memoryType != existingType) return false;
+          }
+          // Нет смысла показывать если уже заполнены все слоты
+          if (ramList.length >= maxRamSlots) return false;
           return true;
         }).toList();
 
@@ -747,6 +881,10 @@ class AppProvider extends ChangeNotifier {
         'current_build_storage',
         _currentBuild.storageList.map((c) => c.id).toList(),
       );
+      await prefs.setStringList(
+        'current_build_ram',
+        _currentBuild.ramList.map((c) => c.id).toList(),
+      );
 
       final buildsJson = _savedBuilds.map((b) => jsonEncode(b.toJson())).toList();
       await prefs.setStringList('saved_builds', buildsJson);
@@ -761,13 +899,21 @@ class AppProvider extends ChangeNotifier {
       final buildName = prefs.getString('current_build_name') ?? 'Моя сборка';
       final buildJson = prefs.getString('current_build');
       final storageIds = prefs.getStringList('current_build_storage') ?? [];
+      final ramIds = prefs.getStringList('current_build_ram') ?? [];
 
       if (buildJson != null) {
         final map = jsonDecode(buildJson) as Map<String, dynamic>;
         final components = <ComponentCategory, Component>{};
+        final legacyRamId = <String>[];
+
         for (final entry in map.entries) {
           final cat = _categoryFromKey(entry.key);
           if (cat == null || cat == ComponentCategory.storage) continue;
+          // Обратная совместимость: старый RAM из components map
+          if (cat == ComponentCategory.ram) {
+            legacyRamId.add(entry.value as String);
+            continue;
+          }
           final comp = findComponentById(entry.value as String);
           if (comp != null) components[cat] = comp;
         }
@@ -778,12 +924,21 @@ class AppProvider extends ChangeNotifier {
           if (comp != null) storageList.add(comp);
         }
 
+        final ramList = <Component>[];
+        // Предпочитаем новый формат, иначе — старый
+        final ramIdsToLoad = ramIds.isNotEmpty ? ramIds : legacyRamId;
+        for (final id in ramIdsToLoad) {
+          final comp = findComponentById(id);
+          if (comp != null) ramList.add(comp);
+        }
+
         _currentBuild = PcBuild(
           id: 'current',
           name: buildName,
           createdAt: DateTime.now(),
           components: components,
           storageList: storageList,
+          ramList: ramList,
         );
       }
 
@@ -792,9 +947,15 @@ class AppProvider extends ChangeNotifier {
         final data = jsonDecode(json) as Map<String, dynamic>;
         final compIds = (data['componentIds'] as Map<String, dynamic>?) ?? {};
         final components = <ComponentCategory, Component>{};
+        final legacyRamId = <String>[];
+
         for (final entry in compIds.entries) {
           final cat = _categoryFromKey(entry.key);
           if (cat == null || cat == ComponentCategory.storage) continue;
+          if (cat == ComponentCategory.ram) {
+            legacyRamId.add(entry.value as String);
+            continue;
+          }
           final comp = findComponentById(entry.value as String);
           if (comp != null) components[cat] = comp;
         }
@@ -807,12 +968,24 @@ class AppProvider extends ChangeNotifier {
           if (comp != null) storageList.add(comp);
         }
 
+        // Восстанавливаем список RAM
+        final ramList = <Component>[];
+        final rawRamIds = (data['ramIds'] as List<dynamic>?) ?? [];
+        final ramIdsToLoad = rawRamIds.isNotEmpty
+            ? rawRamIds.cast<String>()
+            : legacyRamId;
+        for (final id in ramIdsToLoad) {
+          final comp = findComponentById(id);
+          if (comp != null) ramList.add(comp);
+        }
+
         return PcBuild(
           id: data['id'] ?? '',
           name: data['name'] ?? 'Сборка',
           createdAt: DateTime.tryParse(data['createdAt'] ?? '') ?? DateTime.now(),
           components: components,
           storageList: storageList,
+          ramList: ramList,
         );
       }).toList();
 
@@ -824,14 +997,17 @@ class AppProvider extends ChangeNotifier {
 
   bool isInCurrentBuild(String componentId) {
     return _currentBuild.components.values.any((c) => c.id == componentId) ||
-        _currentBuild.storageList.any((c) => c.id == componentId);
+        _currentBuild.storageList.any((c) => c.id == componentId) ||
+        _currentBuild.ramList.any((c) => c.id == componentId);
   }
 
   // ─── Helpers ───
 
   /// Есть ли в сборке хотя бы один компонент, с которым можно проверять совместимость.
   bool get hasBuildForCompatibility =>
-      _currentBuild.components.isNotEmpty || _currentBuild.storageList.isNotEmpty;
+      _currentBuild.components.isNotEmpty ||
+      _currentBuild.storageList.isNotEmpty ||
+      _currentBuild.ramList.isNotEmpty;
 
   /// Безопасный поиск категории по ключу. Возвращает null если ключ неизвестен.
   static ComponentCategory? _categoryFromKey(String key) {
