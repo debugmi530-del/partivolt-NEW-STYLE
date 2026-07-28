@@ -25,7 +25,7 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'PC BUILDER',
+                    'PARTIVOLT',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 20,
