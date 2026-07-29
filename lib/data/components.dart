@@ -19,14 +19,15 @@ final List<Component> allComponents = [
   ...coolingComponents,
 ];
 
-// Fast lookup by id
-Component? findComponentById(String id) {
-  try {
-    return allComponents.firstWhere((c) => c.id == id);
-  } catch (_) {
-    return null;
-  }
+// O(1) lookup by id — built once on first access
+Map<String, Component>? _componentIndex;
+
+Map<String, Component> get _index {
+  _componentIndex ??= {for (final c in allComponents) c.id: c};
+  return _componentIndex!;
 }
+
+Component? findComponentById(String id) => _index[id];
 
 // Grouped by category
 Map<ComponentCategory, List<Component>> get componentsByCategory {

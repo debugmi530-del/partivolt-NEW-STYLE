@@ -54,6 +54,11 @@ class AppProvider extends ChangeNotifier {
   // ── Compatibility filter ──
   bool _compatibilityFilterEnabled = false;
 
+  // ── Serialised persistence ──
+  // Chains saves so they always execute one-at-a-time, preventing
+  // interleaved SharedPreferences writes from fast concurrent mutations.
+  Future<void> _saveChain = Future.value();
+
   PcBuild get currentBuild => _currentBuild;
   List<PcBuild> get savedBuilds => _savedBuilds;
   List<Component> get compareComponents => _compareComponents;
@@ -753,17 +758,6 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void swapComparePositions(int index1, int index2) {
-    if (index1 >= _compareComponents.length ||
-        index2 >= _compareComponents.length) return;
-    final updated = List<Component>.from(_compareComponents);
-    final tmp = updated[index1];
-    updated[index1] = updated[index2];
-    updated[index2] = tmp;
-    _compareComponents = updated;
-    notifyListeners();
-  }
-
   void clearCompare() {
     _compareComponents = [];
     notifyListeners();
@@ -964,7 +958,12 @@ class AppProvider extends ChangeNotifier {
 
   // ─── Persistence ───
 
-  Future<void> _save() async {
+  // Enqueue a save so rapid mutations never run in parallel.
+  void _save() {
+    _saveChain = _saveChain.then((_) => _doSave());
+  }
+
+  Future<void> _doSave() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final buildMap = _currentBuild.components.map(
@@ -984,7 +983,7 @@ class AppProvider extends ChangeNotifier {
       final buildsJson = _savedBuilds.map((b) => jsonEncode(b.toJson())).toList();
       await prefs.setStringList('saved_builds', buildsJson);
     } catch (e) {
-      // ignore storage errors
+      debugPrint('PCBuilder: failed to save state: $e');
     }
   }
 
@@ -1086,7 +1085,7 @@ class AppProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      // ignore load errors
+      debugPrint('PCBuilder: failed to load saved state: $e');
     }
   }
 
