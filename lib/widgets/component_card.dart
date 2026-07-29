@@ -461,11 +461,8 @@ class _MultiSlotCounter extends StatelessWidget {
             ),
           ),
           // Счётчик
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
             child: Text(
               '$count',
               style: const TextStyle(
