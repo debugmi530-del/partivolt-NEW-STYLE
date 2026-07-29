@@ -4,6 +4,7 @@ import '../models/component.dart';
 import '../models/pc_build.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 // Pre-computed colors to avoid withOpacity() on every frame
 const _kAccentFaint = Color(0x0FFF6B35);   // AppTheme.accent @ 6%
@@ -101,7 +102,7 @@ class _BuildComparisonView extends StatelessWidget {
                           size: 14, color: AppTheme.primary),
                       const SizedBox(width: 6),
                       Text(
-                        '${cheaper == 0 ? build1.name : build2.name} дешевле на ${_fmt(priceDiff)} ₽',
+                        '${cheaper == 0 ? build1.name : build2.name} дешевле на ${formatPrice(priceDiff)} ₽',
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppTheme.primary,
@@ -166,11 +167,6 @@ class _BuildComparisonView extends StatelessWidget {
     );
   }
 
-  static String _fmt(double p) =>
-      p.toInt().toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
 }
 
 // ── Category section — one per component type ──
@@ -383,7 +379,7 @@ class _ComponentNameCell extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${_fmt(c.price)} ₽',
+                    '${formatPrice(c.price)} ₽',
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppTheme.accent,
@@ -396,11 +392,6 @@ class _ComponentNameCell extends StatelessWidget {
     );
   }
 
-  static String _fmt(double p) =>
-      p.toInt().toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
 }
 
 // ── Build name/price header ──
@@ -491,7 +482,7 @@ class _PriceTotal extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         Text(
-          '${_fmt(pcBuild.totalPrice)} ₽',
+          '${formatPrice(pcBuild.totalPrice)} ₽',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -502,11 +493,6 @@ class _PriceTotal extends StatelessWidget {
     );
   }
 
-  static String _fmt(double p) =>
-      p.toInt().toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
 }
 
 // ── Legend dot — const widget ──

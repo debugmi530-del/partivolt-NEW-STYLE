@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/component.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 class ComponentCard extends StatelessWidget {
   final Component component;
@@ -262,7 +263,7 @@ class ComponentCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '${_formatPrice(component.price)} ₽',
+                          '${formatPrice(component.price)} ₽',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -427,12 +428,6 @@ class ComponentCard extends StatelessWidget {
     }
   }
 
-  String _formatPrice(double price) {
-    return price.toInt().toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]} ',
-    );
-  }
 }
 
 // ── Виджет счётчика [−] n [+] для RAM и накопителей ──

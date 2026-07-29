@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/component.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 class BuilderScreen extends StatefulWidget {
   const BuilderScreen({super.key});
@@ -79,7 +80,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                           style: TextStyle(
                               fontSize: 12, color: AppTheme.textSecondary)),
                       Text(
-                        '${_fmt(build.totalPrice)} ₽',
+                        '${formatPrice(build.totalPrice)} ₽',
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -326,7 +327,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(ctrl.dispose);
   }
 
   void _confirmClear(BuildContext context, AppProvider provider) {
@@ -353,12 +354,6 @@ class _BuilderScreenState extends State<BuilderScreen> {
     );
   }
 
-  String _fmt(double price) {
-    return price.toInt().toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]} ',
-    );
-  }
 }
 
 // ─── Add RAM Slot ───
@@ -654,7 +649,7 @@ class _SlotCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${_fmt(component.price)} ₽',
+                          '${formatPrice(component.price)} ₽',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -729,12 +724,6 @@ class _SlotCard extends StatelessWidget {
     );
   }
 
-  String _fmt(double price) {
-    return price.toInt().toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]} ',
-    );
-  }
 }
 
 class _CompatRow extends StatelessWidget {

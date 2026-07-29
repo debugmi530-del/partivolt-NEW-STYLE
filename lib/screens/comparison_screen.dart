@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/component.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 class ComparisonScreen extends StatefulWidget {
   const ComparisonScreen({super.key});
@@ -376,7 +377,7 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${_fmt(item.price)} ₽',
+            '${formatPrice(item.price)} ₽',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -473,10 +474,4 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
     );
   }
 
-  static String _fmt(double price) {
-    return price.toInt().toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]} ',
-    );
-  }
 }

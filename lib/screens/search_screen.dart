@@ -18,6 +18,10 @@ class _SearchScreenState extends State<SearchScreen> {
   List<Component> _results = [];
   bool _searched = false;
 
+  // Track last computed sort key so didChangeDependencies re-runs search
+  // only when sort actually changes — not on every provider notification.
+  String _lastSortBy = '';
+
   final _recentSearches = [
     'RTX 4090', 'Ryzen 9', 'DDR5', 'NVMe SSD', 'AIO 360mm',
   ];
@@ -28,8 +32,25 @@ class _SearchScreenState extends State<SearchScreen> {
     super.dispose();
   }
 
+  /// Called whenever an InheritedWidget dependency (i.e. AppProvider) changes.
+  /// Re-runs the search when sort order changes so results stay ordered without
+  /// calling provider.searchAll() inside build().
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_searched || _controller.text.isEmpty) return;
+    final provider = context.read<AppProvider>();
+    final newSortBy = provider.sortBy;
+    if (newSortBy == _lastSortBy) return;
+    _lastSortBy = newSortBy;
+    // Update _results directly — didChangeDependencies runs before build(),
+    // so the new value will be picked up in the same frame.
+    _results = provider.searchAll(_controller.text);
+  }
+
   void _search(String q, AppProvider provider) {
     final results = provider.searchAll(q);
+    _lastSortBy = provider.sortBy;
     setState(() {
       _results = results;
       _searched = q.isNotEmpty;
@@ -38,15 +59,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Use watch so that sort/filter changes in provider trigger a rebuild
-    // and results are re-computed with the latest ordering.
+    // Watch so that ComponentCard badges (in-build counts) update live.
+    // Search results are managed via _results / didChangeDependencies instead
+    // of being recomputed here to avoid an O(n) scan on every frame.
     final provider = context.watch<AppProvider>();
-
-    // Always recompute from provider when the user has an active search query
-    // so that sort/filter changes are immediately reflected in the list.
-    final liveResults = _searched && _controller.text.isNotEmpty
-        ? provider.searchAll(_controller.text)
-        : _results;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -73,6 +89,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       setState(() {
                         _results = [];
                         _searched = false;
+                        _lastSortBy = '';
                       });
                     },
                   )
@@ -86,7 +103,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
       body: _searched
-          ? _buildResults(liveResults)
+          ? _buildResults(_results)
           : _buildSuggestions(provider),
     );
   }

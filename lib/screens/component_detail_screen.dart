@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/component.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 class ComponentDetailScreen extends StatelessWidget {
   final String componentId;
@@ -150,7 +151,7 @@ class _ComponentDetailView extends StatelessWidget {
                             margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                             duration: const Duration(seconds: 2),
                             content: const Text(
-                              'В сравнении уже 3 товара',
+                              'В сравнении уже 40 товаров',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -249,7 +250,7 @@ class _ComponentDetailView extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            '${_formatPrice(component.price)} ₽',
+                            '${formatPrice(component.price)} ₽',
                             style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w800,
@@ -473,7 +474,7 @@ class _ComponentDetailView extends StatelessWidget {
                             margin: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                             duration: const Duration(seconds: 2),
                             content: const Text(
-                              'В сравнении уже 3 товара',
+                              'В сравнении уже 40 товаров',
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -682,10 +683,4 @@ class _ComponentDetailView extends StatelessWidget {
     return Text(inBuild ? 'В сборке' : 'В сборку');
   }
 
-  String _formatPrice(double price) {
-    return price.toInt().toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]} ',
-    );
-  }
 }

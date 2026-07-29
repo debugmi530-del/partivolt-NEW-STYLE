@@ -47,7 +47,6 @@ class AppProvider extends ChangeNotifier {
   List<Component> _compareComponents = [];
 
   // ── Filters & Search ──
-  String _searchQuery = '';
   Map<String, Set<String>> _activeFilters = {};
   String _sortBy = 'price_asc';
 
@@ -62,7 +61,6 @@ class AppProvider extends ChangeNotifier {
   PcBuild get currentBuild => _currentBuild;
   List<PcBuild> get savedBuilds => _savedBuilds;
   List<Component> get compareComponents => _compareComponents;
-  String get searchQuery => _searchQuery;
   Map<String, Set<String>> get activeFilters => _activeFilters;
   String get sortBy => _sortBy;
   bool get compatibilityFilterEnabled => _compatibilityFilterEnabled;
@@ -590,11 +588,17 @@ class AppProvider extends ChangeNotifier {
     String? excludeFilterKey,
   }) {
     var list = getByCategory(category);
-
     if (_compatibilityFilterEnabled) {
       list = _applyCompatibilityFilter(list, category);
     }
+    return _applyActiveFilters(list, excludeFilterKey: excludeFilterKey);
+  }
 
+  /// Applies [_activeFilters] to [list], optionally skipping [excludeFilterKey].
+  List<Component> _applyActiveFilters(
+    List<Component> list, {
+    String? excludeFilterKey,
+  }) {
     for (final entry in _activeFilters.entries) {
       if (entry.key == excludeFilterKey) continue;
       final key = entry.key;
@@ -605,7 +609,6 @@ class AppProvider extends ChangeNotifier {
         return specVal != null && values.contains(specVal);
       }).toList();
     }
-
     return list;
   }
 
@@ -771,11 +774,6 @@ class AppProvider extends ChangeNotifier {
 
   // ─── Filters & Sorting ───
 
-  void setSearchQuery(String query) {
-    _searchQuery = query;
-    notifyListeners();
-  }
-
   void setSortBy(String sort) {
     _sortBy = sort;
     notifyListeners();
@@ -902,30 +900,11 @@ class AppProvider extends ChangeNotifier {
   List<Component> filteredComponents(ComponentCategory category) {
     var list = getByCategory(category);
 
-    // Compatibility filter
     if (_compatibilityFilterEnabled) {
       list = _applyCompatibilityFilter(list, category);
     }
 
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      list = list.where((c) =>
-        c.name.toLowerCase().contains(q) ||
-        c.brand.toLowerCase().contains(q) ||
-        c.description.toLowerCase().contains(q) ||
-        c.specs.values.any((v) => v.toLowerCase().contains(q))
-      ).toList();
-    }
-
-    for (final entry in _activeFilters.entries) {
-      final key = entry.key;
-      final values = entry.value;
-      list = list.where((c) {
-        if (key == 'Бренд') return values.contains(c.brand);
-        final specVal = c.specs[key];
-        return specVal != null && values.contains(specVal);
-      }).toList();
-    }
+    list = _applyActiveFilters(list);
 
     switch (_sortBy) {
       case 'price_asc':
@@ -957,6 +936,10 @@ class AppProvider extends ChangeNotifier {
   }
 
   // ─── Persistence ───
+
+  /// Public entry point called by the lifecycle observer to ensure any
+  /// pending in-memory changes are flushed to disk before the app is killed.
+  void forceSave() => _save();
 
   // Enqueue a save so rapid mutations never run in parallel.
   void _save() {

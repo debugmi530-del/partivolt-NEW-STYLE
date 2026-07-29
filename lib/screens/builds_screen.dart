@@ -6,6 +6,7 @@ import '../models/component.dart';
 import '../models/pc_build.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import '../utils/format_utils.dart';
 
 enum _BuildSortMode { dateDesc, dateAsc, priceDesc, priceAsc, nameAsc, nameDesc }
 
@@ -250,6 +251,7 @@ class _BuildsScreenState extends State<BuildsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+
         title: const Text('Импорт сборки'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -289,7 +291,7 @@ class _BuildsScreenState extends State<BuildsScreen> {
           ),
         ],
       ),
-    );
+    ).whenComplete(controller.dispose);
   }
 
   // ── Выполняет импорт и показывает результат ──
@@ -421,7 +423,7 @@ class _BuildsScreenState extends State<BuildsScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          '${b.components.length} компонентов · ${_fmt(b.totalPrice)} ₽',
+                          '${b.components.length} компонентов · ${formatPrice(b.totalPrice)} ₽',
                           style: const TextStyle(fontSize: 12),
                         ),
                         value: isSelected,
@@ -472,10 +474,6 @@ class _BuildsScreenState extends State<BuildsScreen> {
     );
   }
 
-  static String _fmt(double p) => p.toInt().toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
 }
 
 class _BuildCard extends StatelessWidget {
@@ -528,7 +526,7 @@ class _BuildCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${_fmt(pcBuild.totalPrice)} ₽',
+                  '${formatPrice(pcBuild.totalPrice)} ₽',
                   style: const TextStyle(
                     color: AppTheme.accent,
                     fontSize: 15,
@@ -651,8 +649,4 @@ class _BuildCard extends StatelessWidget {
     );
   }
 
-  static String _fmt(double p) => p.toInt().toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]} ',
-      );
 }

@@ -150,6 +150,21 @@ class _MainShellState extends State<_MainShell> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// Сохраняет состояние при уходе приложения в фон / закрытии.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached ||
+        state == AppLifecycleState.hidden) {
+      // _saveChain in AppProvider serialises writes; nothing extra needed here,
+      // but triggering a save ensures the latest state reaches disk before the
+      // process is potentially killed.
+      if (mounted) {
+        context.read<AppProvider>().forceSave();
+      }
+    }
+  }
+
   /// Перехватывает системную кнопку/жест «назад» на уровне ОС.
   /// Возвращает true — событие поглощено (приложение не закрывается).
   /// Возвращает false — GoRouter обрабатывает как обычно (навигация назад).

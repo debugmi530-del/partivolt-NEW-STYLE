@@ -29,14 +29,19 @@ Map<String, Component> get _index {
 
 Component? findComponentById(String id) => _index[id];
 
-// Grouped by category
+// Lazy-cached category index — built once on first access
+Map<ComponentCategory, List<Component>>? _categoryIndex;
+
 Map<ComponentCategory, List<Component>> get componentsByCategory {
-  final map = <ComponentCategory, List<Component>>{};
-  for (final c in allComponents) {
-    map.putIfAbsent(c.category, () => []).add(c);
+  if (_categoryIndex == null) {
+    final map = <ComponentCategory, List<Component>>{};
+    for (final c in allComponents) {
+      map.putIfAbsent(c.category, () => []).add(c);
+    }
+    _categoryIndex = map;
   }
-  return map;
+  return _categoryIndex!;
 }
 
 List<Component> getByCategory(ComponentCategory cat) =>
-    allComponents.where((c) => c.category == cat).toList();
+    componentsByCategory[cat] ?? const [];
