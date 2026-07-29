@@ -486,104 +486,180 @@ class _ComponentDetailView extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: ElevatedButton.icon(
-                icon: Icon(
-                  inBuild ? Icons.check_circle : Icons.add_shopping_cart,
-                  size: 18,
-                ),
-                label: _buildButtonLabel(provider),
-                onPressed: () {
-                  final messenger = ScaffoldMessenger.of(context);
-                  final isStorage = component.category == ComponentCategory.storage;
-                  final isRam = component.category == ComponentCategory.ram;
-
-                  if (isStorage) {
-                    final limitErr = provider.canAddStorageDrive(component);
-                    if (limitErr != null) {
-                      messenger
-                        ..clearSnackBars()
-                        ..showSnackBar(SnackBar(
-                          content: Text(limitErr),
-                          duration: const Duration(seconds: 2),
-                        ));
-                    } else {
-                      provider.addToBuild(component);
-                      messenger
-                        ..clearSnackBars()
-                        ..showSnackBar(SnackBar(
-                          content: Text('${component.model} добавлен в сборку'),
-                          duration: const Duration(seconds: 2),
-                          action: SnackBarAction(
-                            label: 'Сборка',
-                            onPressed: () {
-                              messenger.clearSnackBars();
-                              context.push('/builder');
-                            },
-                          ),
-                        ));
-                    }
-                  } else if (isRam) {
-                    final limitErr = provider.canAddRamStick(component);
-                    if (limitErr != null) {
-                      messenger
-                        ..clearSnackBars()
-                        ..showSnackBar(SnackBar(
-                          content: Text(limitErr),
-                          duration: const Duration(seconds: 2),
-                        ));
-                    } else {
-                      provider.addToBuild(component);
-                      messenger
-                        ..clearSnackBars()
-                        ..showSnackBar(SnackBar(
-                          content: Text('${component.model} добавлен в сборку'),
-                          duration: const Duration(seconds: 2),
-                          action: SnackBarAction(
-                            label: 'Сборка',
-                            onPressed: () {
-                              messenger.clearSnackBars();
-                              context.push('/builder');
-                            },
-                          ),
-                        ));
-                    }
-                  } else if (inBuild) {
-                    provider.removeFromBuild(component.category);
-                    messenger
-                      ..clearSnackBars()
-                      ..showSnackBar(
-                        const SnackBar(
-                          content: Text('Удалено из сборки'),
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                  } else {
-                    provider.addToBuild(component);
-                    messenger
-                      ..clearSnackBars()
-                      ..showSnackBar(
-                        SnackBar(
-                          content: Text('${component.model} добавлен в сборку'),
-                          duration: const Duration(seconds: 2),
-                          action: SnackBarAction(
-                            label: 'Сборка',
-                            onPressed: () {
-                              messenger.clearSnackBars();
-                              context.push('/builder');
-                            },
-                          ),
-                        ),
-                      );
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      inBuild ? AppTheme.success : AppTheme.accent,
-                ),
-              ),
+              child: _buildAddButton(context, provider, inBuild),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Кнопка/счётчик «В сборку» с учётом типа компонента.
+  /// Для RAM и накопителей показывает [−] count [+] когда count > 0.
+  Widget _buildAddButton(BuildContext context, AppProvider provider, bool inBuild) {
+    final isStorage = component.category == ComponentCategory.storage;
+    final isRam = component.category == ComponentCategory.ram;
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (isStorage || isRam) {
+      final count = isStorage
+          ? provider.storageCountInBuild(component.id)
+          : provider.ramCountInBuild(component.id);
+
+      if (count > 0) {
+        // Show [−] count [+] counter
+        return Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppTheme.accent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // Decrement button
+              Expanded(
+                child: InkWell(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                  ),
+                  onTap: () {
+                    if (isStorage) {
+                      provider.removeFirstStorageDriveOccurrence(component.id);
+                    } else {
+                      provider.removeFirstRamStickOccurrence(component.id);
+                    }
+                  },
+                  child: const Center(
+                    child: Icon(Icons.remove, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+              // Count display
+              Container(
+                width: 1,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '×$count в сборке',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              Container(
+                width: 1,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+              // Increment button
+              Expanded(
+                child: InkWell(
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  onTap: () {
+                    final limitErr = isStorage
+                        ? provider.canAddStorageDrive(component)
+                        : provider.canAddRamStick(component);
+                    if (limitErr != null) {
+                      messenger
+                        ..clearSnackBars()
+                        ..showSnackBar(SnackBar(
+                          content: Text(limitErr),
+                          duration: const Duration(seconds: 2),
+                        ));
+                    } else {
+                      provider.addToBuild(component);
+                    }
+                  },
+                  child: const Center(
+                    child: Icon(Icons.add, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // count == 0 → regular "В сборку" button
+      return ElevatedButton.icon(
+        icon: const Icon(Icons.add_shopping_cart, size: 18),
+        label: const Text('В сборку'),
+        onPressed: () {
+          final limitErr = isStorage
+              ? provider.canAddStorageDrive(component)
+              : provider.canAddRamStick(component);
+          if (limitErr != null) {
+            messenger
+              ..clearSnackBars()
+              ..showSnackBar(SnackBar(
+                content: Text(limitErr),
+                duration: const Duration(seconds: 2),
+              ));
+          } else {
+            provider.addToBuild(component);
+            messenger
+              ..clearSnackBars()
+              ..showSnackBar(SnackBar(
+                content: Text('${component.model} добавлен в сборку'),
+                duration: const Duration(seconds: 2),
+                action: SnackBarAction(
+                  label: 'Сборка',
+                  onPressed: () {
+                    messenger.clearSnackBars();
+                    context.push('/builder');
+                  },
+                ),
+              ));
+          }
+        },
+        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
+      );
+    }
+
+    // Regular single-slot component
+    return ElevatedButton.icon(
+      icon: Icon(
+        inBuild ? Icons.check_circle : Icons.add_shopping_cart,
+        size: 18,
+      ),
+      label: Text(inBuild ? 'В сборке' : 'В сборку'),
+      onPressed: () {
+        if (inBuild) {
+          provider.removeFromBuild(component.category);
+          messenger
+            ..clearSnackBars()
+            ..showSnackBar(const SnackBar(
+              content: Text('Удалено из сборки'),
+              duration: Duration(seconds: 2),
+            ));
+        } else {
+          provider.addToBuild(component);
+          messenger
+            ..clearSnackBars()
+            ..showSnackBar(SnackBar(
+              content: Text('${component.model} добавлен в сборку'),
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
+                label: 'Сборка',
+                onPressed: () {
+                  messenger.clearSnackBars();
+                  context.push('/builder');
+                },
+              ),
+            ));
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: inBuild ? AppTheme.success : AppTheme.accent,
       ),
     );
   }

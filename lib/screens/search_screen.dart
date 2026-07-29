@@ -38,7 +38,15 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.read<AppProvider>();
+    // Use watch so that sort/filter changes in provider trigger a rebuild
+    // and results are re-computed with the latest ordering.
+    final provider = context.watch<AppProvider>();
+
+    // Always recompute from provider when the user has an active search query
+    // so that sort/filter changes are immediately reflected in the list.
+    final liveResults = _searched && _controller.text.isNotEmpty
+        ? provider.searchAll(_controller.text)
+        : _results;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -78,13 +86,13 @@ class _SearchScreenState extends State<SearchScreen> {
         ),
       ),
       body: _searched
-          ? _buildResults()
+          ? _buildResults(liveResults)
           : _buildSuggestions(provider),
     );
   }
 
-  Widget _buildResults() {
-    if (_results.isEmpty) {
+  Widget _buildResults(List<Component> results) {
+    if (results.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -103,7 +111,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
     // Group by category
     final grouped = <ComponentCategory, List<Component>>{};
-    for (final c in _results) {
+    for (final c in results) {
       grouped.putIfAbsent(c.category, () => <Component>[]).add(c);
     }
 
@@ -113,7 +121,7 @@ class _SearchScreenState extends State<SearchScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
-            'Найдено: ${_results.length}',
+            'Найдено: ${results.length}',
             style: const TextStyle(
                 fontSize: 13, color: AppTheme.textSecondary),
           ),

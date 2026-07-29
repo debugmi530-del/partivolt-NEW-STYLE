@@ -179,7 +179,9 @@ class _MainShellState extends State<_MainShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final selectedIndex = _getSelectedIndex(context);
     final provider = context.watch<AppProvider>();
-    final buildCount = provider.currentBuild.components.length;
+    final buildCount = provider.currentBuild.components.length +
+        provider.currentBuild.storageList.length +
+        provider.currentBuild.ramList.length;
     final compareCount = provider.compareComponents.length;
 
     return Scaffold(
