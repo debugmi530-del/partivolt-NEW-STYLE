@@ -250,6 +250,9 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     category: cat,
                     component: component,
                     onAdd: () => context.push('/category/${cat.key}'),
+                    onReplace: component != null
+                        ? () => context.push('/category/${cat.key}')
+                        : null,
                     onRemove: component != null
                         ? () => provider.removeFromBuild(cat)
                         : null,
@@ -269,6 +272,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     label: 'RAM ${idx + 1}',
                     onAdd: () => context.push(
                         '/category/${ComponentCategory.ram.key}'),
+                    onReplace: () {
+                      provider.removeRamStickAt(idx);
+                      context.push('/category/${ComponentCategory.ram.key}');
+                    },
                     onRemove: () => provider.removeRamStickAt(idx),
                     onTap: () => context.push('/component/${ram.id}'),
                   );
@@ -292,6 +299,10 @@ class _BuilderScreenState extends State<BuilderScreen> {
                     label: 'Накопитель ${idx + 1}',
                     onAdd: () => context.push(
                         '/category/${ComponentCategory.storage.key}'),
+                    onReplace: () {
+                      provider.removeStorageDriveAt(idx);
+                      context.push('/category/${ComponentCategory.storage.key}');
+                    },
                     onRemove: () => provider.removeStorageDriveAt(idx),
                     onTap: () => context.push('/component/${drive.id}'),
                   );
@@ -568,6 +579,7 @@ class _SlotCard extends StatelessWidget {
   final dynamic component;
   final VoidCallback onAdd;
   final VoidCallback? onRemove;
+  final VoidCallback? onReplace;
   final VoidCallback? onTap;
   final String? label;
 
@@ -576,6 +588,7 @@ class _SlotCard extends StatelessWidget {
     required this.component,
     required this.onAdd,
     this.onRemove,
+    this.onReplace,
     this.onTap,
     this.label,
   });
@@ -667,18 +680,38 @@ class _SlotCard extends StatelessWidget {
                             color: AppTheme.accent,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        GestureDetector(
-                          onTap: onRemove,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.error.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Кнопка «Заменить»
+                            GestureDetector(
+                              onTap: onReplace,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.swap_horiz,
+                                    size: 14, color: AppTheme.primary),
+                              ),
                             ),
-                            child: const Icon(Icons.close,
-                                size: 14, color: AppTheme.error),
-                          ),
+                            const SizedBox(width: 6),
+                            // Кнопка «Удалить»
+                            GestureDetector(
+                              onTap: onRemove,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.error.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.close,
+                                    size: 14, color: AppTheme.error),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
