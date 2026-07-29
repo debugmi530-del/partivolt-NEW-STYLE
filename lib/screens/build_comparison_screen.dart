@@ -1,3 +1,4 @@
+import 'dart:math' show max;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/component.dart';
@@ -53,6 +54,8 @@ class _BuildComparisonView extends StatelessWidget {
     // Pre-build all category sections once; Column.children is a fixed list.
     final categorySections = <Widget>[];
     for (final cat in ComponentCategory.values) {
+      // Storage and RAM are handled separately (multi-slot lists below)
+      if (cat == ComponentCategory.storage || cat == ComponentCategory.ram) continue;
       final c1 = build1.components[cat];
       final c2 = build2.components[cat];
       if (c1 == null && c2 == null) continue;
@@ -60,6 +63,28 @@ class _BuildComparisonView extends StatelessWidget {
         cat: cat,
         component1: c1,
         component2: c2,
+      ));
+    }
+
+    // RAM multi-slot rows
+    final maxRam = max(build1.ramList.length, build2.ramList.length);
+    for (int i = 0; i < maxRam; i++) {
+      categorySections.add(_CategorySection(
+        cat: ComponentCategory.ram,
+        component1: i < build1.ramList.length ? build1.ramList[i] : null,
+        component2: i < build2.ramList.length ? build2.ramList[i] : null,
+        labelOverride: maxRam > 1 ? 'RAM ${i + 1}' : 'RAM',
+      ));
+    }
+
+    // Storage multi-slot rows
+    final maxStorage = max(build1.storageList.length, build2.storageList.length);
+    for (int i = 0; i < maxStorage; i++) {
+      categorySections.add(_CategorySection(
+        cat: ComponentCategory.storage,
+        component1: i < build1.storageList.length ? build1.storageList[i] : null,
+        component2: i < build2.storageList.length ? build2.storageList[i] : null,
+        labelOverride: maxStorage > 1 ? 'Диск ${i + 1}' : 'Диск',
       ));
     }
 
@@ -176,11 +201,13 @@ class _CategorySection extends StatelessWidget {
   final ComponentCategory cat;
   final Component? component1;
   final Component? component2;
+  final String? labelOverride;
 
   const _CategorySection({
     required this.cat,
     required this.component1,
     required this.component2,
+    this.labelOverride,
   });
 
   @override
@@ -225,7 +252,7 @@ class _CategorySection extends StatelessWidget {
                         Icon(cat.icon, size: 16, color: cat.color),
                         const SizedBox(height: 4),
                         Text(
-                          cat.shortName,
+                          labelOverride ?? cat.shortName,
                           style: TextStyle(
                             fontSize: 11,
                             color: cat.color,
@@ -434,10 +461,29 @@ class _BuildHeader extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              '${pcBuild.components.length} комп.',
+              '${pcBuild.components.length + pcBuild.storageList.length + pcBuild.ramList.length} комп.',
               style: const TextStyle(
                   fontSize: 11, color: AppTheme.textSecondary),
             ),
+            if (!pcBuild.isComplete)
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppTheme.warning.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: Text(
+                    'Неполная',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 2),
             if (isCheaper)
               DecoratedBox(
                 decoration: BoxDecoration(

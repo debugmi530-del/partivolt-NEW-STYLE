@@ -15,6 +15,17 @@ class BuilderScreen extends StatefulWidget {
 class _BuilderScreenState extends State<BuilderScreen> {
   bool _showCompatibility = false;
 
+  static String _pluralErrors(int n) {
+    if (n % 100 >= 11 && n % 100 <= 19) return '$n ошибок';
+    switch (n % 10) {
+      case 1: return '$n ошибка';
+      case 2:
+      case 3:
+      case 4: return '$n ошибки';
+      default: return '$n ошибок';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
@@ -124,7 +135,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                         Text(
                           compat.errors.isEmpty
                               ? 'Совместимо'
-                              : '${compat.errors.length} ошибки',
+                              : _pluralErrors(compat.errors.length),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -206,7 +217,7 @@ class _BuilderScreenState extends State<BuilderScreen> {
                                                       .psu]!.powerDraw ??
                                                   1))
                                           .clamp(0.0, 1.0)
-                                      : 0.5,
+                                      : 0.0,
                               backgroundColor: AppTheme.divider,
                               color: compat.totalTdp >
                                       (build

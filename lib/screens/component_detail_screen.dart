@@ -616,7 +616,7 @@ class _ComponentDetailView extends StatelessWidget {
                   label: 'Сборка',
                   onPressed: () {
                     messenger.clearSnackBars();
-                    context.push('/builder');
+                    context.go('/builder');
                   },
                 ),
               ));
@@ -653,7 +653,7 @@ class _ComponentDetailView extends StatelessWidget {
                 label: 'Сборка',
                 onPressed: () {
                   messenger.clearSnackBars();
-                  context.push('/builder');
+                  context.go('/builder');
                 },
               ),
             ));

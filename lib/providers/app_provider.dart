@@ -273,7 +273,7 @@ class AppProvider extends ChangeNotifier {
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       // Поддерживаем версии 1 и 2
-      final version = data['v'] as int? ?? 1;
+      final version = (data['v'] as num?)?.toInt() ?? 1;
       if (version != 1 && version != 2) {
         return const ImportResult(missingCategories: ['Неизвестный формат кода']);
       }

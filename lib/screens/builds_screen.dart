@@ -423,7 +423,7 @@ class _BuildsScreenState extends State<BuildsScreen> {
                           ),
                         ),
                         subtitle: Text(
-                          '${b.components.length} компонентов · ${formatPrice(b.totalPrice)} ₽',
+                          '${b.components.length + b.storageList.length + b.ramList.length} компонентов · ${formatPrice(b.totalPrice)} ₽',
                           style: const TextStyle(fontSize: 12),
                         ),
                         value: isSelected,
@@ -574,7 +574,7 @@ class _BuildCard extends StatelessWidget {
                       size: 14, color: AppTheme.warning),
                   const SizedBox(width: 4),
                   Text(
-                    'Сборка неполная ($totalCount/8 компонентов)',
+                    'Сборка неполная ($totalCount компонентов)',
                     style: const TextStyle(
                         fontSize: 11, color: AppTheme.warning),
                   ),

@@ -182,16 +182,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           Expanded(
             child: components.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.search_off, size: 64,
-                            color: AppTheme.textSecondary),
-                        const SizedBox(height: 12),
-                        const Text('Ничего не найдено',
-                            style: TextStyle(color: AppTheme.textSecondary)),
-                      ],
-                    ),
+                    child: _buildEmptyState(provider),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(bottom: 20),
@@ -205,6 +196,72 @@ class _CategoryScreenState extends State<CategoryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildEmptyState(AppProvider provider) {
+    // Специальное сообщение когда фильтр совместимости скрыл накопители/RAM
+    // потому что слоты заполнены
+    if (provider.compatibilityFilterEnabled) {
+      final build = provider.currentBuild;
+      if (_category == ComponentCategory.storage &&
+          build.components.containsKey(ComponentCategory.pcCase) &&
+          build.storageList.length >= provider.maxStorageSlots) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.inventory_2_outlined,
+                size: 64, color: AppTheme.warning),
+            const SizedBox(height: 12),
+            const Text(
+              'Слоты накопителей заполнены',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Все отсеки корпуса заняты.\nУдалите один из накопителей в сборщике.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+          ],
+        );
+      }
+      if (_category == ComponentCategory.ram &&
+          build.ramList.length >= provider.maxRamSlots) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.memory_outlined,
+                size: 64, color: AppTheme.warning),
+            const SizedBox(height: 12),
+            const Text(
+              'Все слоты памяти заняты',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Материнская плата не поддерживает\nбольше планок памяти.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            ),
+          ],
+        );
+      }
+    }
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.search_off, size: 64, color: AppTheme.textSecondary),
+        SizedBox(height: 12),
+        Text('Ничего не найдено',
+            style: TextStyle(color: AppTheme.textSecondary)),
+      ],
     );
   }
 
