@@ -99,8 +99,58 @@ class AppProvider extends ChangeNotifier {
 
   // ─── Storage management ───
 
-  /// Максимальное количество накопителей, которое поддерживает выбранный корпус.
-  /// Если корпус не выбран — разрешаем до 6 штук по умолчанию.
+  // ── Helpers: тип накопителя по физическому подключению ──
+
+  /// M.2-накопитель (NVMe или M.2 SATA) — занимает слот M.2 на материнской плате.
+  bool _isM2Drive(Component c) => c.formFactor == 'M.2';
+
+  /// 2.5" SATA SSD — занимает отсек 2.5" в корпусе.
+  bool _isSata25Drive(Component c) =>
+      c.formFactor == 'SATA' || c.formFactor == '2.5"';
+
+  /// 3.5" HDD — занимает отсек 3.5" в корпусе.
+  bool _isHdd35Drive(Component c) =>
+      c.formFactor == 'HDD' || c.formFactor == '3.5"';
+
+  // ── Helpers: лимиты по типу ──
+
+  /// Слоты M.2 на выбранной материнской плате (3 по умолчанию если плата не выбрана).
+  int get maxM2Slots {
+    final mb = _currentBuild.components[ComponentCategory.motherboard];
+    return _maxM2SlotsForMb(mb);
+  }
+
+  int _maxM2SlotsForMb(Component? mb) {
+    if (mb == null) return 3;
+    final slotStr = mb.specs['Слоты M.2'];
+    if (slotStr == null) return 0;
+    final match = RegExp(r'\d+').firstMatch(slotStr);
+    return int.tryParse(match?.group(0) ?? '') ?? 0;
+  }
+
+  /// Отсеки 2.5" в выбранном корпусе (4 по умолчанию если корпус не выбран).
+  int get max25Slots {
+    final pcCase = _currentBuild.components[ComponentCategory.pcCase];
+    return _max25SlotsForCase(pcCase);
+  }
+
+  int _max25SlotsForCase(Component? pcCase) {
+    if (pcCase == null) return 4;
+    return int.tryParse(pcCase.specs['Отсеки 2.5"'] ?? '0') ?? 0;
+  }
+
+  /// Отсеки 3.5" в выбранном корпусе (2 по умолчанию если корпус не выбран).
+  int get max35Slots {
+    final pcCase = _currentBuild.components[ComponentCategory.pcCase];
+    return _max35SlotsForCase(pcCase);
+  }
+
+  int _max35SlotsForCase(Component? pcCase) {
+    if (pcCase == null) return 2;
+    return int.tryParse(pcCase.specs['Отсеки 3.5"'] ?? '0') ?? 0;
+  }
+
+  /// Суммарное количество отсеков в корпусе (2.5" + 3.5") — для общего отображения.
   int get maxStorageSlots {
     final pcCase = _currentBuild.components[ComponentCategory.pcCase];
     return _maxStorageSlotsForCase(pcCase);
@@ -113,8 +163,49 @@ class AppProvider extends ChangeNotifier {
     return (slots25 + slots35).clamp(1, 99);
   }
 
-  /// Возвращает null если можно добавить, иначе текст ошибки.
+  /// Возвращает null если накопитель можно добавить, иначе текст ошибки.
+  /// Проверяет лимит по типу подключения: M.2 → слоты платы, 2.5"/3.5" → отсеки корпуса.
   String? canAddStorageDrive(Component component) {
+    if (_isM2Drive(component)) {
+      final mb = _currentBuild.components[ComponentCategory.motherboard];
+      final usedM2 = _currentBuild.storageList.where(_isM2Drive).length;
+      final maxSlots = _maxM2SlotsForMb(mb);
+      if (usedM2 >= maxSlots) {
+        if (mb == null) {
+          return 'Сначала выберите материнскую плату — количество слотов M.2 неизвестно';
+        }
+        return 'Материнская плата ${mb.brand} ${mb.model} поддерживает максимум $maxSlots слота(-ов) M.2';
+      }
+      return null;
+    }
+
+    if (_isSata25Drive(component)) {
+      final pcCase = _currentBuild.components[ComponentCategory.pcCase];
+      final used25 = _currentBuild.storageList.where(_isSata25Drive).length;
+      final maxSlots = _max25SlotsForCase(pcCase);
+      if (used25 >= maxSlots) {
+        if (pcCase == null) {
+          return 'Нет свободных отсеков 2.5" — сначала выберите корпус';
+        }
+        return 'Корпус ${pcCase.brand} ${pcCase.model} поддерживает максимум $maxSlots отсека(-ов) 2.5"';
+      }
+      return null;
+    }
+
+    if (_isHdd35Drive(component)) {
+      final pcCase = _currentBuild.components[ComponentCategory.pcCase];
+      final used35 = _currentBuild.storageList.where(_isHdd35Drive).length;
+      final maxSlots = _max35SlotsForCase(pcCase);
+      if (used35 >= maxSlots) {
+        if (pcCase == null) {
+          return 'Нет свободных отсеков 3.5" — сначала выберите корпус';
+        }
+        return 'Корпус ${pcCase.brand} ${pcCase.model} поддерживает максимум $maxSlots отсека(-ов) 3.5"';
+      }
+      return null;
+    }
+
+    // Фолбэк для неизвестных форм-факторов
     if (_currentBuild.storageList.length >= maxStorageSlots) {
       return 'Корпус поддерживает максимум $maxStorageSlots накопителя(-ей)';
     }
@@ -122,7 +213,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   void addStorageDrive(Component component) {
-    if (_currentBuild.storageList.length >= maxStorageSlots) return;
+    if (canAddStorageDrive(component) != null) return;
     final newList = List<Component>.from(_currentBuild.storageList)..add(component);
     _currentBuild = _currentBuild.copyWith(storageList: newList);
     notifyListeners();
@@ -482,20 +573,21 @@ class AppProvider extends ChangeNotifier {
       }
     }
 
-    // ── NVMe-накопители vs слоты M.2 на материнской плате ──
+    // ── M.2-накопители (NVMe и M.2 SATA) vs слоты M.2 на материнской плате ──
     if (mb != null && storageList.isNotEmpty) {
-      final nvmeCount = storageList.where((s) => s.specs['NVMe'] == 'Есть').length;
-      if (nvmeCount > 0) {
-        final m2SlotStr = mb.specs['Слоты M.2'];
-        if (m2SlotStr != null) {
-          final m2Slots = int.tryParse(
-              RegExp(r'\d+').firstMatch(m2SlotStr)?.group(0) ?? '');
-          if (m2Slots != null && nvmeCount > m2Slots) {
-            errors.add(
-              'Материнская плата ${mb.brand} ${mb.model} имеет $m2Slots слота(-ов) M.2, '
-              'установлено $nvmeCount NVMe-накопителя(-ей)',
-            );
-          }
+      final m2Count = storageList.where(_isM2Drive).length;
+      if (m2Count > 0) {
+        final m2Slots = _maxM2SlotsForMb(mb);
+        if (m2Slots == 0) {
+          errors.add(
+            'Материнская плата ${mb.brand} ${mb.model} не имеет слотов M.2, '
+            'установлено $m2Count M.2-накопителя(-ей)',
+          );
+        } else if (m2Count > m2Slots) {
+          errors.add(
+            'Материнская плата ${mb.brand} ${mb.model} имеет $m2Slots слота(-ов) M.2, '
+            'установлено $m2Count M.2-накопителя(-ей)',
+          );
         }
       }
     }
@@ -734,12 +826,31 @@ class AppProvider extends ChangeNotifier {
         return list.where((c) => (c.powerDraw ?? 0) >= minWattage).toList();
 
       case ComponentCategory.storage:
-        // Фильтрация по доступным слотам
-        if (pcCase != null) {
-          final maxSlots = _maxStorageSlotsForCase(pcCase);
-          if (_currentBuild.storageList.length >= maxSlots) return [];
-        }
-        return list;
+        // Фильтрация по доступным слотам с учётом типа накопителя
+        return list.where((c) {
+          if (_isM2Drive(c)) {
+            // M.2 (NVMe или M.2 SATA) — ограничен слотами M.2 на плате
+            final usedM2 = _currentBuild.storageList.where(_isM2Drive).length;
+            return usedM2 < _maxM2SlotsForMb(
+                _currentBuild.components[ComponentCategory.motherboard]);
+          }
+          if (_isSata25Drive(c)) {
+            // 2.5" SATA SSD — ограничен отсеками 2.5" в корпусе
+            final used25 = _currentBuild.storageList.where(_isSata25Drive).length;
+            return used25 < _max25SlotsForCase(pcCase);
+          }
+          if (_isHdd35Drive(c)) {
+            // 3.5" HDD — ограничен отсеками 3.5" в корпусе
+            final used35 = _currentBuild.storageList.where(_isHdd35Drive).length;
+            return used35 < _max35SlotsForCase(pcCase);
+          }
+          // Фолбэк для неизвестных форм-факторов
+          if (pcCase != null) {
+            return _currentBuild.storageList.length <
+                _maxStorageSlotsForCase(pcCase);
+          }
+          return true;
+        }).toList();
 
       default:
         return list;

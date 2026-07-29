@@ -204,30 +204,45 @@ class _CategoryScreenState extends State<CategoryScreen> {
     // потому что слоты заполнены
     if (provider.compatibilityFilterEnabled) {
       final build = provider.currentBuild;
-      if (_category == ComponentCategory.storage &&
-          build.components.containsKey(ComponentCategory.pcCase) &&
-          build.storageList.length >= provider.maxStorageSlots) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.inventory_2_outlined,
-                size: 64, color: AppTheme.warning),
-            const SizedBox(height: 12),
-            const Text(
-              'Слоты накопителей заполнены',
-              style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Все отсеки корпуса заняты.\nУдалите один из накопителей в сборщике.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-            ),
-          ],
-        );
+      if (_category == ComponentCategory.storage) {
+        final m2Full = build.storageList
+                .where((c) => c.formFactor == 'M.2')
+                .length >=
+            provider.maxM2Slots;
+        final s25Full = build.storageList
+                .where((c) =>
+                    c.formFactor == 'SATA' || c.formFactor == '2.5"')
+                .length >=
+            provider.max25Slots;
+        final s35Full = build.storageList
+                .where((c) =>
+                    c.formFactor == 'HDD' || c.formFactor == '3.5"')
+                .length >=
+            provider.max35Slots;
+        if (m2Full && s25Full && s35Full) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.inventory_2_outlined,
+                  size: 64, color: AppTheme.warning),
+              const SizedBox(height: 12),
+              const Text(
+                'Все слоты накопителей заняты',
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Заняты все слоты M.2 на плате и все отсеки корпуса.\nУдалите один из накопителей в сборщике.',
+                textAlign: TextAlign.center,
+                style:
+                    TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+              ),
+            ],
+          );
+        }
       }
       if (_category == ComponentCategory.ram &&
           build.ramList.length >= provider.maxRamSlots) {
