@@ -13,6 +13,21 @@ const _kAccentLight = Color(0x14FF6B35);   // AppTheme.accent @ 8%
 const _kPrimaryFaint = Color(0x12006FFF); // AppTheme.primary @ 7%
 const _kRowAlt = Color(0xFFF7F8FA);        // alternating row
 
+/// Данные одной секции — вычисляются один раз и кэшируются.
+class _SectionItem {
+  final ComponentCategory cat;
+  final Component? component1;
+  final Component? component2;
+  final String? labelOverride;
+
+  const _SectionItem({
+    required this.cat,
+    required this.component1,
+    required this.component2,
+    this.labelOverride,
+  });
+}
+
 class BuildComparisonScreen extends StatelessWidget {
   final String buildId1;
   final String buildId2;
@@ -25,9 +40,12 @@ class BuildComparisonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-    final b1 = provider.savedBuilds.where((b) => b.id == buildId1).firstOrNull;
-    final b2 = provider.savedBuilds.where((b) => b.id == buildId2).firstOrNull;
+    // Подписываемся только на savedBuilds — не на весь провайдер.
+    final savedBuilds = context.select<AppProvider, List<PcBuild>>(
+      (p) => p.savedBuilds,
+    );
+    final b1 = savedBuilds.where((b) => b.id == buildId1).firstOrNull;
+    final b2 = savedBuilds.where((b) => b.id == buildId2).firstOrNull;
 
     if (b1 == null || b2 == null) {
       return Scaffold(
@@ -40,53 +58,76 @@ class BuildComparisonScreen extends StatelessWidget {
   }
 }
 
-class _BuildComparisonView extends StatelessWidget {
+/// Вычисляет список секций один раз в [initState] / [didUpdateWidget]
+/// и не пересчитывает их при не связанных ребилдах.
+class _BuildComparisonView extends StatefulWidget {
   final PcBuild build1;
   final PcBuild build2;
 
   const _BuildComparisonView({required this.build1, required this.build2});
 
   @override
+  State<_BuildComparisonView> createState() => _BuildComparisonViewState();
+}
+
+class _BuildComparisonViewState extends State<_BuildComparisonView> {
+  late List<_SectionItem> _sections;
+
+  @override
+  void initState() {
+    super.initState();
+    _sections = _buildSections(widget.build1, widget.build2);
+  }
+
+  @override
+  void didUpdateWidget(_BuildComparisonView old) {
+    super.didUpdateWidget(old);
+    // Пересчитываем только если сами сборки изменились.
+    if (old.build1 != widget.build1 || old.build2 != widget.build2) {
+      _sections = _buildSections(widget.build1, widget.build2);
+    }
+  }
+
+  static List<_SectionItem> _buildSections(PcBuild b1, PcBuild b2) {
+    final sections = <_SectionItem>[];
+
+    for (final cat in ComponentCategory.values) {
+      if (cat == ComponentCategory.storage || cat == ComponentCategory.ram) continue;
+      final c1 = b1.components[cat];
+      final c2 = b2.components[cat];
+      if (c1 == null && c2 == null) continue;
+      sections.add(_SectionItem(cat: cat, component1: c1, component2: c2));
+    }
+
+    final maxRam = max(b1.ramList.length, b2.ramList.length);
+    for (int i = 0; i < maxRam; i++) {
+      sections.add(_SectionItem(
+        cat: ComponentCategory.ram,
+        component1: i < b1.ramList.length ? b1.ramList[i] : null,
+        component2: i < b2.ramList.length ? b2.ramList[i] : null,
+        labelOverride: maxRam > 1 ? 'RAM ${i + 1}' : null,
+      ));
+    }
+
+    final maxStorage = max(b1.storageList.length, b2.storageList.length);
+    for (int i = 0; i < maxStorage; i++) {
+      sections.add(_SectionItem(
+        cat: ComponentCategory.storage,
+        component1: i < b1.storageList.length ? b1.storageList[i] : null,
+        component2: i < b2.storageList.length ? b2.storageList[i] : null,
+        labelOverride: maxStorage > 1 ? 'Диск ${i + 1}' : null,
+      ));
+    }
+
+    return sections;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final build1 = widget.build1;
+    final build2 = widget.build2;
     final cheaper = build1.totalPrice <= build2.totalPrice ? 0 : 1;
     final priceDiff = (build1.totalPrice - build2.totalPrice).abs();
-
-    // Pre-build all category sections once; Column.children is a fixed list.
-    final categorySections = <Widget>[];
-    for (final cat in ComponentCategory.values) {
-      // Storage and RAM are handled separately (multi-slot lists below)
-      if (cat == ComponentCategory.storage || cat == ComponentCategory.ram) continue;
-      final c1 = build1.components[cat];
-      final c2 = build2.components[cat];
-      if (c1 == null && c2 == null) continue;
-      categorySections.add(_CategorySection(
-        cat: cat,
-        component1: c1,
-        component2: c2,
-      ));
-    }
-
-    // RAM multi-slot rows
-    final maxRam = max(build1.ramList.length, build2.ramList.length);
-    for (int i = 0; i < maxRam; i++) {
-      categorySections.add(_CategorySection(
-        cat: ComponentCategory.ram,
-        component1: i < build1.ramList.length ? build1.ramList[i] : null,
-        component2: i < build2.ramList.length ? build2.ramList[i] : null,
-        labelOverride: maxRam > 1 ? 'RAM ${i + 1}' : 'RAM',
-      ));
-    }
-
-    // Storage multi-slot rows
-    final maxStorage = max(build1.storageList.length, build2.storageList.length);
-    for (int i = 0; i < maxStorage; i++) {
-      categorySections.add(_CategorySection(
-        cat: ComponentCategory.storage,
-        component1: i < build1.storageList.length ? build1.storageList[i] : null,
-        component2: i < build2.storageList.length ? build2.storageList[i] : null,
-        labelOverride: maxStorage > 1 ? 'Диск ${i + 1}' : 'Диск',
-      ));
-    }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -159,10 +200,16 @@ class _BuildComparisonView extends StatelessWidget {
             ),
           ),
 
-          // Category rows
+          // Category rows — виртуализованный список, рендерит только видимые секции
           Expanded(
-            child: SingleChildScrollView(
-              child: Column(children: categorySections),
+            child: ListView.builder(
+              itemCount: _sections.length,
+              itemBuilder: (ctx, i) => _CategorySection(
+                cat: _sections[i].cat,
+                component1: _sections[i].component1,
+                component2: _sections[i].component2,
+                labelOverride: _sections[i].labelOverride,
+              ),
             ),
           ),
 
