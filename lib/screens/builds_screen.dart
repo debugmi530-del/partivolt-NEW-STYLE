@@ -495,6 +495,10 @@ class _BuildCard extends StatelessWidget {
         .where((c) => pcBuild.components.containsKey(c))
         .toList();
 
+    final totalCount = pcBuild.components.length +
+        pcBuild.storageList.length +
+        pcBuild.ramList.length;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -543,33 +547,21 @@ class _BuildCard extends StatelessWidget {
             child: Wrap(
               spacing: 6,
               runSpacing: 6,
-              children: categories.map((cat) {
-                final comp = pcBuild.components[cat]!;
-                return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: cat.color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: cat.color.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(cat.icon, size: 12, color: cat.color),
-                      const SizedBox(width: 4),
-                      Text(
-                        comp.model,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: cat.color,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+              children: [
+                // Обычные компоненты (CPU, GPU, MB, PSU, Case, Cooling)
+                ...categories.map((cat) {
+                  final comp = pcBuild.components[cat]!;
+                  return _ComponentChip(cat: cat, label: comp.model);
+                }),
+                // Накопители (может быть несколько)
+                ...pcBuild.storageList.map((comp) =>
+                  _ComponentChip(cat: ComponentCategory.storage, label: comp.model),
+                ),
+                // Планки RAM (может быть несколько)
+                ...pcBuild.ramList.map((comp) =>
+                  _ComponentChip(cat: ComponentCategory.ram, label: comp.model),
+                ),
+              ],
             ),
           ),
 
@@ -582,7 +574,7 @@ class _BuildCard extends StatelessWidget {
                       size: 14, color: AppTheme.warning),
                   const SizedBox(width: 4),
                   Text(
-                    'Сборка неполная (${pcBuild.components.length}/8 компонентов)',
+                    'Сборка неполная ($totalCount/8 компонентов)',
                     style: const TextStyle(
                         fontSize: 11, color: AppTheme.warning),
                   ),
@@ -596,7 +588,7 @@ class _BuildCard extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  '${pcBuild.components.length} компонентов',
+                  '$totalCount компонентов',
                   style: const TextStyle(
                       fontSize: 12, color: AppTheme.textSecondary),
                 ),
@@ -649,4 +641,39 @@ class _BuildCard extends StatelessWidget {
     );
   }
 
+}
+
+/// Переиспользуемый чип компонента для карточки сборки.
+class _ComponentChip extends StatelessWidget {
+  final ComponentCategory cat;
+  final String label;
+
+  const _ComponentChip({required this.cat, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: cat.color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: cat.color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(cat.icon, size: 12, color: cat.color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: cat.color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
