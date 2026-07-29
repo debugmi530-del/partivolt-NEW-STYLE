@@ -298,43 +298,57 @@ class ComponentCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
 
-                        // Add to build button
-                        GestureDetector(
-                          onTap: () => _onAddToBuild(context, provider, inBuild),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isMultiSlot
-                                  ? AppTheme.accent
-                                  : (inBuild ? AppTheme.success : AppTheme.accent),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isMultiSlot
-                                      ? Icons.add
-                                      : (inBuild ? Icons.check : Icons.add),
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  isMultiSlot
-                                      ? 'В сборку'
-                                      : (inBuild ? 'В сборке' : 'В сборку'),
-                                  style: const TextStyle(
+                        // ── Кнопки для multi-slot (RAM / накопители) ──
+                        if (isMultiSlot && countInBuild > 0)
+                          _MultiSlotCounter(
+                            count: countInBuild,
+                            onDecrement: () => _onDecrement(context, provider),
+                            onIncrement: () =>
+                                _onAddToBuild(context, provider, inBuild),
+                          )
+                        else
+                          // Add to build button (обычный вид)
+                          GestureDetector(
+                            onTap: () =>
+                                _onAddToBuild(context, provider, inBuild),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isMultiSlot
+                                    ? AppTheme.accent
+                                    : (inBuild
+                                        ? AppTheme.success
+                                        : AppTheme.accent),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isMultiSlot
+                                        ? Icons.add
+                                        : (inBuild
+                                            ? Icons.check
+                                            : Icons.add),
+                                    size: 14,
                                     color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    isMultiSlot
+                                        ? 'В сборку'
+                                        : (inBuild ? 'В сборке' : 'В сборку'),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ],
@@ -345,6 +359,15 @@ class ComponentCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _onDecrement(BuildContext context, AppProvider provider) {
+    final isStorage = component.category == ComponentCategory.storage;
+    if (isStorage) {
+      provider.removeFirstStorageDriveOccurrence(component.id);
+    } else {
+      provider.removeFirstRamStickOccurrence(component.id);
+    }
   }
 
   void _onAddToBuild(BuildContext context, AppProvider provider, bool inBuild) {
@@ -408,6 +431,65 @@ class ComponentCard extends StatelessWidget {
     return price.toInt().toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (m) => '${m[1]} ',
+    );
+  }
+}
+
+// ── Виджет счётчика [−] n [+] для RAM и накопителей ──
+class _MultiSlotCounter extends StatelessWidget {
+  final int count;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+
+  const _MultiSlotCounter({
+    required this.count,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.accent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Кнопка −
+          GestureDetector(
+            onTap: onDecrement,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: const Icon(Icons.remove, size: 14, color: Colors.white),
+            ),
+          ),
+          // Счётчик
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          // Кнопка +
+          GestureDetector(
+            onTap: onIncrement,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              child: const Icon(Icons.add, size: 14, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

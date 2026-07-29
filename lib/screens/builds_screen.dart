@@ -7,13 +7,60 @@ import '../models/pc_build.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
 
-class BuildsScreen extends StatelessWidget {
+enum _BuildSortMode { dateDesc, dateAsc, priceDesc, priceAsc, nameAsc, nameDesc }
+
+extension _BuildSortModeLabel on _BuildSortMode {
+  String get label {
+    switch (this) {
+      case _BuildSortMode.dateDesc:  return 'Сначала новые';
+      case _BuildSortMode.dateAsc:   return 'Сначала старые';
+      case _BuildSortMode.priceDesc: return 'Сначала дороже';
+      case _BuildSortMode.priceAsc:  return 'Сначала дешевле';
+      case _BuildSortMode.nameAsc:   return 'По названию (А–Я)';
+      case _BuildSortMode.nameDesc:  return 'По названию (Я–А)';
+    }
+  }
+}
+
+class BuildsScreen extends StatefulWidget {
   const BuildsScreen({super.key});
+
+  @override
+  State<BuildsScreen> createState() => _BuildsScreenState();
+}
+
+class _BuildsScreenState extends State<BuildsScreen> {
+  _BuildSortMode _sortMode = _BuildSortMode.dateDesc;
+
+  List<PcBuild> _sorted(List<PcBuild> builds) {
+    final list = List<PcBuild>.from(builds);
+    switch (_sortMode) {
+      case _BuildSortMode.dateDesc:
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case _BuildSortMode.dateAsc:
+        list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case _BuildSortMode.priceDesc:
+        list.sort((a, b) => b.totalPrice.compareTo(a.totalPrice));
+        break;
+      case _BuildSortMode.priceAsc:
+        list.sort((a, b) => a.totalPrice.compareTo(b.totalPrice));
+        break;
+      case _BuildSortMode.nameAsc:
+        list.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case _BuildSortMode.nameDesc:
+        list.sort((a, b) => b.name.compareTo(a.name));
+        break;
+    }
+    return list;
+  }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
-    final builds = provider.savedBuilds;
+    final builds = _sorted(provider.savedBuilds);
 
     // Если пришла ссылка — автоматически запускаем импорт
     final pending = provider.pendingImportCode;
@@ -29,6 +76,29 @@ class BuildsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Мои сборки'),
         actions: [
+          // ── Кнопка сортировки ──
+          if (builds.isNotEmpty)
+            PopupMenuButton<_BuildSortMode>(
+              icon: const Icon(Icons.sort),
+              tooltip: 'Сортировка',
+              onSelected: (mode) => setState(() => _sortMode = mode),
+              itemBuilder: (_) => _BuildSortMode.values
+                  .map((mode) => PopupMenuItem<_BuildSortMode>(
+                        value: mode,
+                        child: Row(
+                          children: [
+                            if (_sortMode == mode)
+                              const Icon(Icons.check,
+                                  size: 16, color: AppTheme.primary)
+                            else
+                              const SizedBox(width: 16),
+                            const SizedBox(width: 8),
+                            Text(mode.label),
+                          ],
+                        ),
+                      ))
+                  .toList(),
+            ),
           // ── Кнопка импорта ──
           IconButton(
             icon: const Icon(Icons.download_rounded),
