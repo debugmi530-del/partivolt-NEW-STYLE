@@ -1,5 +1,11 @@
 import 'dart:math' show max;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/component.dart';
+import '../models/pc_build.dart';
+import '../providers/app_provider.dart';
+import '../theme.dart';
+import '../utils/format_utils.dart';
 
 // ── Определяет тип накопителя для умного сопоставления ──────────────────────
 // Порядок проверки важен: сначала NVMe (может быть SATA+NVMe у редких моделей),
@@ -17,12 +23,6 @@ String _storageType(Component c) {
 
 // Нужный порядок секций для накопителей
 const _kStorageTypeOrder = ['NVMe SSD', 'SSD SATA', 'HDD'];
-import 'package:provider/provider.dart';
-import '../models/component.dart';
-import '../models/pc_build.dart';
-import '../providers/app_provider.dart';
-import '../theme.dart';
-import '../utils/format_utils.dart';
 
 // Pre-computed colors to avoid withOpacity() on every frame
 const _kAccentFaint = Color(0x0FFF6B35);   // AppTheme.accent @ 6%
