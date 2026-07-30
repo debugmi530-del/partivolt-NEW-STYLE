@@ -1,5 +1,22 @@
 import 'dart:math' show max;
 import 'package:flutter/material.dart';
+
+// ── Определяет тип накопителя для умного сопоставления ──────────────────────
+// Порядок проверки важен: сначала NVMe (может быть SATA+NVMe у редких моделей),
+// потом HDD (есть «Скорость вращения»), остальное — SSD SATA.
+String _storageType(Component c) {
+  final iface = (c.specs['Интерфейс'] ?? '').toLowerCase();
+  final hasNvmeKey = c.specs.containsKey('NVMe') &&
+      (c.specs['NVMe'] ?? '').toLowerCase() == 'есть';
+  if (hasNvmeKey || iface.contains('nvme') || iface.contains('pcie')) {
+    return 'NVMe SSD';
+  }
+  if (c.specs.containsKey('Скорость вращения шпинделя')) return 'HDD';
+  return 'SSD SATA';
+}
+
+// Нужный порядок секций для накопителей
+const _kStorageTypeOrder = ['NVMe SSD', 'SSD SATA', 'HDD'];
 import 'package:provider/provider.dart';
 import '../models/component.dart';
 import '../models/pc_build.dart';
@@ -109,14 +126,42 @@ class _BuildComparisonViewState extends State<_BuildComparisonView> {
       ));
     }
 
-    final maxStorage = max(b1.storageList.length, b2.storageList.length);
-    for (int i = 0; i < maxStorage; i++) {
-      sections.add(_SectionItem(
-        cat: ComponentCategory.storage,
-        component1: i < b1.storageList.length ? b1.storageList[i] : null,
-        component2: i < b2.storageList.length ? b2.storageList[i] : null,
-        labelOverride: maxStorage > 1 ? 'Диск ${i + 1}' : null,
-      ));
+    // ── Умное сопоставление накопителей по типу ──────────────────────────
+    // Группируем накопители каждой сборки по типу, затем попарно сравниваем
+    // одинаковые типы. Это корректно работает когда:
+    //   • сборки имеют разное количество дисков
+    //   • у сборок диски разных типов (NVMe vs HDD vs SSD SATA)
+    //   • один из типов присутствует только в одной сборке
+    final Map<String, List<Component>> byType1 = {};
+    final Map<String, List<Component>> byType2 = {};
+    for (final c in b1.storageList) {
+      byType1.putIfAbsent(_storageType(c), () => []).add(c);
+    }
+    for (final c in b2.storageList) {
+      byType2.putIfAbsent(_storageType(c), () => []).add(c);
+    }
+
+    // Все типы, присутствующие хотя бы в одной сборке, в нужном порядке
+    final allTypes = <String>{...byType1.keys, ...byType2.keys};
+    final orderedTypes = [
+      ..._kStorageTypeOrder.where(allTypes.contains),
+      ...allTypes.where((t) => !_kStorageTypeOrder.contains(t)),
+    ];
+
+    for (final type in orderedTypes) {
+      final drives1 = byType1[type] ?? const [];
+      final drives2 = byType2[type] ?? const [];
+      final count = max(drives1.length, drives2.length);
+      for (int i = 0; i < count; i++) {
+        // Метка: тип + номер если несколько одинаковых (напр. «NVMe SSD 2»)
+        final label = count > 1 ? '$type ${i + 1}' : type;
+        sections.add(_SectionItem(
+          cat: ComponentCategory.storage,
+          component1: i < drives1.length ? drives1[i] : null,
+          component2: i < drives2.length ? drives2[i] : null,
+          labelOverride: label,
+        ));
+      }
     }
 
     return sections;
@@ -424,10 +469,21 @@ class _ComponentNameCell extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: c == null
-            ? const Center(
-                child: Text('—',
-                    style: TextStyle(
-                        fontSize: 14, color: AppTheme.textSecondary)),
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.remove_circle_outline,
+                        size: 18, color: AppTheme.divider),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Нет в сборке',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
