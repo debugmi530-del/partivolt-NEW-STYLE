@@ -22,9 +22,16 @@ class _SearchScreenState extends State<SearchScreen> {
   // only when sort actually changes — not on every provider notification.
   String _lastSortBy = '';
 
-  final _recentSearches = [
-    'RTX 4090', 'Ryzen 9', 'DDR5', 'NVMe SSD', 'AIO 360mm',
-  ];
+  // Популярные запросы: генерируются из каталога при открытии экрана.
+  // Список фиксируется на полдня и меняется в 00:00 и 12:00.
+  late List<String> _popularSuggestions;
+
+  @override
+  void initState() {
+    super.initState();
+    _popularSuggestions =
+        context.read<AppProvider>().getPopularSuggestions();
+  }
 
   @override
   void dispose() {
@@ -205,7 +212,7 @@ class _SearchScreenState extends State<SearchScreen> {
         const Text('Популярные запросы',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
-        ..._recentSearches.map((q) => ListTile(
+        ..._popularSuggestions.map((q) => ListTile(
           leading: const Icon(Icons.trending_up, color: AppTheme.primary, size: 20),
           title: Text(q),
           dense: true,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/component.dart';
@@ -1044,6 +1045,26 @@ class AppProvider extends ChangeNotifier {
       c.model.toLowerCase().contains(q) ||
       c.category.displayName.toLowerCase().contains(q)
     ).toList();
+  }
+
+  /// Возвращает 6 случайных названий компонентов из каталога.
+  /// Набор фиксируется на полдня (меняется в 00:00 и 12:00) —
+  /// seed = год × 1000 + номерДня × 2 + (0 утром / 1 днём).
+  List<String> getPopularSuggestions({int count = 6}) {
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final seed = now.year * 1000 + dayOfYear * 2 + (now.hour < 12 ? 0 : 1);
+    final rng = Random(seed);
+
+    final names = allComponents.map((c) => c.name).toList();
+    // Fisher-Yates shuffle
+    for (var i = names.length - 1; i > 0; i--) {
+      final j = rng.nextInt(i + 1);
+      final tmp = names[i];
+      names[i] = names[j];
+      names[j] = tmp;
+    }
+    return names.take(count).toList();
   }
 
   // ─── Persistence ───
