@@ -404,6 +404,17 @@ class _ComparisonScreenState extends State<ComparisonScreen> {
               ),
             ],
           ),
+          // Счётчик позиции
+          if (total > 1) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${currentIdx + 1} из $total',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           // Название
           Text(
